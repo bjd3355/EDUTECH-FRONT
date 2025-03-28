@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    margin: 0;
+  }
+}
+/* Ajoutez ceci dans votre fichier CSS */
+.rounded-image {
+  border-radius: 15px; /* Ajustez la valeur selon vos préférences */
+}

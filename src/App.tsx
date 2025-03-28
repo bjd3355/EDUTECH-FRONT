@@ -1,17 +1,24 @@
 
-import './styles/output.css'
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import "./index.css";
+import Login from './pages/Auth/login';
+import Dashboard from './pages/Dashboard/dashbord';
+import ForgotPassword from "./pages/Auth/forgotpassword";
 
-function App() {
-
+const App: React.FC = () => {
   return (
-    <>
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <h1 className="text-4xl font-bold text-blue-600">
-        Bienvenue sur <span className="text-red-500">EDUTECH</span>
-      </h1>
-    </div>
-    </>
-  )
-}
+    <Router>
+     
+        <Routes>
+          <Route path="/" element={<Login />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/Auth/forgot-password" element={<ForgotPassword />} />
+          
+        </Routes>
+    
+    </Router>
+  );
+};
 
-export default App
+export default App;
