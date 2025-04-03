@@ -7,8 +7,9 @@ import SchedulePage from './pages/EmploiDuTemps/SchedulePage';
 import CoursesPage from './pages/Cours/CoursesPage';
 import LiveClassPage from './pages/VirtualClasses/LiveClassPage';
 import ProfilePage from './pages/ProfilePage/ProfilePage';
-import AssignmentsPage from './pages/Devoirs et Évaluations/AssignmentsPage'; // Importé correctement
+import AssignmentsPage from './pages/Devoirs et Évaluations/AssignmentsPage';
 import MessagesPage from './pages/components/MessagesPage';
+import Settings from './pages/ProfilePage/parametre'; 
 
 const LoadingScreen = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -30,8 +31,9 @@ const App: React.FC = () => {
           <Route path="/courses" element={<StudentDashboard><CoursesPage /></StudentDashboard>} />
           <Route path="/live" element={<StudentDashboard><LiveClassPage /></StudentDashboard>} />
           <Route path="/profile" element={<StudentDashboard><ProfilePage /></StudentDashboard>} />
-          <Route path="/assignments" element={<StudentDashboard><AssignmentsPage /></StudentDashboard>} /> {/* Route pour les devoirs */}
+          <Route path="/assignments" element={<StudentDashboard><AssignmentsPage /></StudentDashboard>} />
           <Route path="/messages" element={<StudentDashboard><MessagesPage /></StudentDashboard>} />
+          <Route path="/settings" element={<StudentDashboard><Settings /></StudentDashboard>} /> {/* Nouvelle route pour Settings */}
           <Route path="*" element={<div>Page non trouvée</div>} />
         </Routes>
       </Suspense>
