@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FaCalendar, FaFilter } from 'react-icons/fa';
+import { FaCalendar} from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import Skeleton from 'react-loading-skeleton';
 import axios from 'axios';
