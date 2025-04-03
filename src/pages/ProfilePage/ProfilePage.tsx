@@ -130,25 +130,25 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClose }) => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="bg-white p-8 rounded-2xl shadow-xl max-w-2xl w-full mx-auto my-8 border border-gray-100"
+      className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl shadow-xl w-full max-w-full sm:max-w-md md:max-w-lg mx-auto my-4 sm:my-8 border border-gray-100"
     >
-      <h1 className="text-3xl font-bold text-[#2C6E78] mb-8 flex items-center justify-center">
-        <FaUser className="mr-3 text-[#2CB3C2]" /> {t('Mon Profil')}
+      <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-[#2C6E78] mb-6 sm:mb-8 flex items-center justify-center">
+        <FaUser className="mr-2 sm:mr-3 text-[#2CB3C2]" /> {t('Mon Profil')}
       </h1>
 
-      <div className="flex justify-center mb-8">
+      <div className="flex justify-center mb-6 sm:mb-8">
         <div className="relative group">
           <img
             src={previewPicture || user.profilePicture}
             alt="Photo de profil"
-            className="w-32 h-32 rounded-full object-cover border-4 border-[#2CB3C2] shadow-md transition-transform duration-300 group-hover:scale-105"
+            className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-full object-cover border-4 border-[#2CB3C2] shadow-md transition-transform duration-300 group-hover:scale-105"
           />
           {isEditing && (
             <label
               htmlFor="profilePicture"
-              className="absolute bottom-1 right-1 bg-[#2CB3C2] p-2 rounded-full cursor-pointer hover:bg-[#1F5A63] transition-colors duration-300"
+              className="absolute bottom-0 right-0 bg-[#2CB3C2] p-1 sm:p-2 rounded-full cursor-pointer hover:bg-[#1F5A63] transition-colors duration-300"
             >
-              <FaCamera className="text-white text-lg" />
+              <FaCamera className="text-white text-sm sm:text-base" />
               <input
                 id="profilePicture"
                 type="file"
@@ -161,17 +161,17 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClose }) => {
         </div>
       </div>
 
-      <div className="space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
         {[
-          { icon: FaUser, label: t('nom'), value: user.name, key: 'name' },
+          { icon: FaUser, label: t('nom'), value: user.name, key: 'name', spanFull: true },
           { icon: FaIdCard, label: t('numeroEtudiant'), value: user.studentId, key: 'studentId', disabled: true },
-          { icon: FaEnvelope, label: t('email'), value: user.email, key: 'email' },
+          { icon: FaEnvelope, label: t('email'), value: user.email, key: 'email', spanFull: true },
           { icon: FaPhone, label: t('telephone'), value: user.phone, key: 'phone' },
           { icon: FaBirthdayCake, label: t('dateDeNaissance'), value: user.dateOfBirth, key: 'dateOfBirth', type: 'date' },
-          { icon: FaBook, label: t('filiere'), value: user.major, key: 'major' },
+          { icon: FaBook, label: t('filiere'), value: user.major, key: 'major', spanFull: true },
         ].map((field, index) => (
-          <div key={index}>
-            <label className="flex items-center text-[#2C6E78] font-semibold mb-1">
+          <div key={index} className={field.spanFull ? 'sm:col-span-2' : ''}>
+            <label className="flex items-center text-[#2C6E78] font-semibold mb-1 text-sm sm:text-base">
               <field.icon className="mr-2 text-[#2CB3C2]" /> {field.label}
             </label>
             <input
@@ -179,7 +179,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClose }) => {
               value={field.value}
               onChange={(e) => setUser({ ...user, [field.key]: e.target.value })}
               disabled={!isEditing || field.disabled}
-              className={`w-full p-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2CB3C2] ${
+              className={`w-full p-2 sm:p-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2CB3C2] text-sm sm:text-base ${
                 isEditing && !field.disabled ? 'border-[#2CB3C2]' : 'border-gray-300 bg-gray-100'
               }`}
             />
@@ -187,51 +187,61 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClose }) => {
         ))}
         {isEditing && (
           <>
-            <div>
-              <label className="flex items-center text-[#2C6E78] font-semibold mb-1">
+            <div className="sm:col-span-2">
+              <label className="flex items-center text-[#2C6E78] font-semibold mb-1 text-sm sm:text-base">
                 <FaLock className="mr-2 text-[#2CB3C2]" /> {t('nouveauMotDePasse')}
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full p-3 border border-[#2CB3C2] rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2CB3C2]"
+                className="w-full p-2 sm:p-3 border border-[#2CB3C2] rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2CB3C2] text-sm sm:text-base"
               />
             </div>
-            <div>
-              <label className="flex items-center text-[#2C6E78] font-semibold mb-1">
+            <div className="sm:col-span-2">
+              <label className="flex items-center text-[#2C6E78] font-semibold mb-1 text-sm sm:text-base">
                 <FaLock className="mr-2 text-[#2CB3C2]" /> {t('confirmerMotDePasse')}
               </label>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full p-3 border border-[#2CB3C2] rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2CB3C2]"
+                className="w-full p-2 sm:p-3 border border-[#2CB3C2] rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2CB3C2] text-sm sm:text-base"
               />
             </div>
           </>
         )}
       </div>
 
-      <div className="mt-8 flex justify-between">
+      <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row sm:justify-between gap-4">
         {isEditing ? (
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleSave}
             disabled={isSaving}
-            className={`py-3 px-6 bg-[#2CB3C2] text-white rounded-lg shadow-md transition-opacity duration-300 ${
+            className={`py-2 sm:py-3 px-4 sm:px-6 bg-[#2CB3C2] text-white rounded-lg shadow-md transition-opacity duration-300 flex items-center justify-center w-full sm:w-auto ${
               isSaving ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#1F5A63]'
             }`}
           >
-            {isSaving ? t('sauvegardeEnCours') : t('enregistrerModifications')}
+            {isSaving ? (
+              <>
+                <svg className="animate-spin h-4 sm:h-5 w-4 sm:w-5 mr-2" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" stroke="white" strokeWidth="4" fill="none" />
+                  <path fill="white" d="M4 12a8 8 0 018-8v8h-8z" />
+                </svg>
+                {t('sauvegardeEnCours')}
+              </>
+            ) : (
+              t('enregistrerModifications')
+            )}
           </motion.button>
         ) : (
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setIsEditing(true)}
-            className="py-3 px-6 bg-[#2CB3C2] text-white rounded-lg shadow-md hover:bg-[#1F5A63] transition-colors duration-300"
+            className="py-2 sm:py-3 px-4 sm:px-6 bg-[#2CB3C2] text-white rounded-lg shadow-md hover:bg-[#1F5A63] transition-colors duration-300 w-full sm:w-auto"
           >
             {t('modifier')}
           </motion.button>
@@ -240,7 +250,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onClose }) => {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={handleClose}
-          className="py-3 px-6 bg-gray-500 text-white rounded-lg shadow-md hover:bg-gray-600 transition-colors duration-300"
+          className="py-2 sm:py-3 px-4 sm:px-6 bg-gray-500 text-white rounded-lg shadow-md hover:bg-gray-600 transition-colors duration-300 w-full sm:w-auto"
         >
           {t('fermer')}
         </motion.button>
