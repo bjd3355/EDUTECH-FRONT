@@ -29,7 +29,7 @@ import {
   XCircle,
   ArrowUpDown,
 } from "lucide-react"
-import edutechLogo from '../../assets/logoedutech.jpg'
+import edutechLogo from "../../assets/mag.jpg"
 
 // Types
 type UserRole = "admin" | "professeur" | "etudiant"
@@ -63,30 +63,39 @@ interface UserType {
 }
 
 // Composants UI
-const Card = ({ className = "", children, ...props }: { className?: string; children: React.ReactNode }) => (
+interface CardProps {
+  className?: string
+  children: React.ReactNode
+}
+
+const Card = ({ className = "", children, ...props }: CardProps) => (
   <div className={`bg-white rounded-lg shadow ${className}`} {...props}>
     {children}
   </div>
 )
 
-const CardContent = ({ className = "", children, ...props }: { className?: string; children: React.ReactNode }) => (
+interface CardContentProps {
+  className?: string
+  children: React.ReactNode
+}
+
+const CardContent = ({ className = "", children, ...props }: CardContentProps) => (
   <div className={`p-4 ${className}`} {...props}>
     {children}
   </div>
 )
 
-const Button = ({
-  variant = "primary",
-  size = "md",
-  className = "",
-  children,
-  ...props
-}: {
+interface ButtonProps {
   variant?: "primary" | "secondary" | "outline" | "destructive" | "success" | "warning" | "ghost"
   size?: "sm" | "md" | "lg" | "icon"
   className?: string
   children: React.ReactNode
-}) => {
+  onClick?: () => void
+  disabled?: boolean
+  type?: "button" | "submit" | "reset"
+}
+
+const Button = ({ variant = "primary", size = "md", className = "", children, ...props }: ButtonProps) => {
   const variants = {
     primary: "bg-[#2CB3C2] hover:bg-[#259aa6] text-white",
     secondary: "bg-gray-200 hover:bg-gray-300 text-gray-800",
@@ -111,16 +120,13 @@ const Button = ({
   )
 }
 
-const Badge = ({
-  variant = "default",
-  className = "",
-  children,
-  ...props
-}: {
+interface BadgeProps {
   variant?: "default" | "primary" | "success" | "warning" | "danger" | "outline"
   className?: string
   children: React.ReactNode
-}) => {
+}
+
+const Badge = ({ variant = "default", className = "", children, ...props }: BadgeProps) => {
   const variants = {
     default: "bg-gray-100 text-gray-800",
     primary: "bg-[#2CB3C2] text-white",
@@ -140,14 +146,23 @@ const Badge = ({
   )
 }
 
-const Input = ({ className = "", ...props }: { className?: string; [key: string]: any }) => (
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  className?: string
+}
+
+const Input = ({ className = "", ...props }: InputProps) => (
   <input
     className={`w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#2CB3C2] focus:border-[#2CB3C2] ${className}`}
     {...props}
   />
 )
 
-const Select = ({ className = "", children, ...props }: { className?: string; children: React.ReactNode }) => (
+interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+  className?: string
+  children: React.ReactNode
+}
+
+const Select = ({ className = "", children, ...props }: SelectProps) => (
   <select
     className={`w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#2CB3C2] focus:border-[#2CB3C2] ${className}`}
     {...props}
@@ -156,19 +171,15 @@ const Select = ({ className = "", children, ...props }: { className?: string; ch
   </select>
 )
 
-const Modal = ({
-  isOpen,
-  onClose,
-  title,
-  children,
-  size = "md",
-}: {
+interface ModalProps {
   isOpen: boolean
   onClose: () => void
   title: string
   children: React.ReactNode
   size?: "sm" | "md" | "lg" | "xl" | "full"
-}) => {
+}
+
+const Modal = ({ isOpen, onClose, title, children, size = "md" }: ModalProps) => {
   if (!isOpen) return null
 
   const sizes = {
@@ -194,15 +205,13 @@ const Modal = ({
   )
 }
 
-const Tabs = ({
-  tabs,
-  activeTab,
-  onChange,
-}: {
+interface TabsProps {
   tabs: { id: string; label: string; icon?: React.ComponentType<{ className?: string }> }[]
   activeTab: string
   onChange: (id: string) => void
-}) => {
+}
+
+const Tabs = ({ tabs, activeTab, onChange }: TabsProps) => {
   return (
     <div className="border-b">
       <div className="flex space-x-2">
@@ -223,19 +232,15 @@ const Tabs = ({
   )
 }
 
-const Alert = ({
-  variant = "default",
-  title,
-  children,
-  onClose,
-  className = "",
-}: {
+interface AlertProps {
   variant?: "default" | "warning" | "danger" | "success"
   title?: string
   children: React.ReactNode
   onClose?: () => void
   className?: string
-}) => {
+}
+
+const Alert = ({ variant = "default", title, children, onClose, className = "" }: AlertProps) => {
   const variants = {
     default: "bg-[#2CB3C2]/10 text-[#2CB3C2] border-[#2CB3C2]/20",
     warning: "bg-amber-50 text-amber-800 border-amber-200",
@@ -277,14 +282,30 @@ const generateUsers = (count: number): UserType[] => {
     "Génie Civil",
   ]
   const genres: UserGender[] = ["homme", "femme", "autre"]
-  const nomsSenegalais = [
-    "Diouf", "Ndiaye", "Sarr", "Fall", "Ba", "Sow", "Gueye", "Diallo", "Mbaye", "Thiam",
-  ]
+  const nomsSenegalais = ["Diouf", "Ndiaye", "Sarr", "Fall", "Ba", "Sow", "Gueye", "Diallo", "Mbaye", "Thiam"]
   const prenomsSenegalais = [
-    "Mamadou", "Fatou", "Aminata", "Ousmane", "Seydou", "Khady", "Ibrahima", "Awa", "Cheikh", "Ndèye",
+    "Mamadou",
+    "Fatou",
+    "Aminata",
+    "Ousmane",
+    "Seydou",
+    "Khady",
+    "Ibrahima",
+    "Awa",
+    "Cheikh",
+    "Ndèye",
   ]
   const quartiersDakar = [
-    "Médina", "Plateau", "Yoff", "Fann", "Point E", "Grand Dakar", "Parcelles Assainies", "Sicap", "Hann", "Liberté",
+    "Médina",
+    "Plateau",
+    "Yoff",
+    "Fann",
+    "Point E",
+    "Grand Dakar",
+    "Parcelles Assainies",
+    "Sicap",
+    "Hann",
+    "Liberté",
   ]
 
   const users: UserType[] = []
@@ -350,7 +371,7 @@ const generateUsers = (count: number): UserType[] => {
         .toISOString()
         .split("T")[0],
       genre,
-      photo: edutechLogo.src, // Utilisation de l'image importée
+      photo: edutechLogo, // Corrigé ici
       activites: activities,
     })
   }
@@ -367,6 +388,8 @@ const Utilisateurs: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [roleSelectionStep, setRoleSelectionStep] = useState(true)
+  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null)
   const [activeTab, setActiveTab] = useState("informations")
   const [searchTerm, setSearchTerm] = useState("")
   const [filters, setFilters] = useState({ role: "", filiere: "", status: "" })
@@ -379,7 +402,7 @@ const Utilisateurs: React.FC = () => {
   const [alert, setAlert] = useState<{
     show: boolean
     message: string
-    variant: string
+    variant: "default" | "warning" | "danger" | "success"
   }>({ show: false, message: "", variant: "default" })
 
   useEffect(() => {
@@ -476,12 +499,30 @@ const Utilisateurs: React.FC = () => {
     setTimeout(() => setAlert({ show: false, message: "", variant: "default" }), 3000)
   }
 
-  const handleSaveUser = (e: React.FormEvent) => {
+  const handleSaveUser = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (!selectedUser) return
+
+    const formData = new FormData(e.currentTarget)
+    const updatedUser: UserType = {
+      ...selectedUser,
+      nom: formData.get("nom") as string,
+      prenom: formData.get("prenom") as string,
+      email: formData.get("email") as string,
+      role: selectedUser.role,
+      filiere: (formData.get("filiere") as string) || undefined,
+      status: formData.get("status") as UserStatus,
+      telephone: (formData.get("telephone") as string) || undefined,
+      adresse: (formData.get("adresse") as string) || undefined,
+      dateNaissance: (formData.get("dateNaissance") as string) || undefined,
+      genre: (formData.get("genre") as UserGender) || undefined,
+    }
+
+    setUsers((prev) => prev.map((u) => (u.id === selectedUser.id ? updatedUser : u)))
     setIsEditModalOpen(false)
     setAlert({
       show: true,
-      message: `Les informations de ${selectedUser?.prenom} ${selectedUser?.nom} ont été mises à jour.`,
+      message: `Les informations de ${selectedUser.prenom} ${selectedUser.nom} ont été mises à jour.`,
       variant: "success",
     })
     setTimeout(() => setAlert({ show: false, message: "", variant: "default" }), 3000)
@@ -495,26 +536,43 @@ const Utilisateurs: React.FC = () => {
       nom: formData.get("nom") as string,
       prenom: formData.get("prenom") as string,
       email: formData.get("email") as string,
-      role: formData.get("role") as UserRole,
-      filiere: formData.get("filiere") as string || undefined,
+      role: selectedRole as UserRole,
+      filiere: (formData.get("filiere") as string) || undefined,
       status: formData.get("status") as UserStatus,
       dateInscription: new Date().toISOString().split("T")[0],
       derniereConnexion: new Date().toISOString().split("T")[0],
-      telephone: formData.get("telephone") as string || undefined,
-      adresse: formData.get("adresse") as string || undefined,
-      dateNaissance: formData.get("dateNaissance") as string || undefined,
-      genre: formData.get("genre") as UserGender || undefined,
-      photo: edutechLogo.src, // Utilisation de l'image importée
+      telephone: (formData.get("telephone") as string) || undefined,
+      adresse: (formData.get("adresse") as string) || undefined,
+      dateNaissance: (formData.get("dateNaissance") as string) || undefined,
+      genre: (formData.get("genre") as UserGender) || undefined,
+      photo: edutechLogo, // Corrigé ici
       activites: [],
     }
     setUsers((prev) => [newUser, ...prev])
     setIsAddModalOpen(false)
+    setRoleSelectionStep(true)
+    setSelectedRole(null)
     setAlert({
       show: true,
       message: "Nouvel utilisateur ajouté avec succès.",
       variant: "success",
     })
     setTimeout(() => setAlert({ show: false, message: "", variant: "default" }), 3000)
+  }
+
+  const handleRoleSelect = (role: UserRole) => {
+    setSelectedRole(role)
+    setRoleSelectionStep(false)
+  }
+
+  const handleBackToRoleSelection = () => {
+    setRoleSelectionStep(true)
+  }
+
+  const openAddUserModal = () => {
+    setRoleSelectionStep(true)
+    setSelectedRole(null)
+    setIsAddModalOpen(true)
   }
 
   const handleResetFilters = () => {
@@ -532,7 +590,21 @@ const Utilisateurs: React.FC = () => {
 
   const handleExport = () => {
     const csvContent = [
-      ["ID", "Prénom", "Nom", "Email", "Rôle", "Filière", "Statut", "Date d'inscription", "Dernière connexion", "Téléphone", "Adresse", "Date de naissance", "Genre"],
+      [
+        "ID",
+        "Prénom",
+        "Nom",
+        "Email",
+        "Rôle",
+        "Filière",
+        "Statut",
+        "Date d'inscription",
+        "Dernière connexion",
+        "Téléphone",
+        "Adresse",
+        "Date de naissance",
+        "Genre",
+      ],
       ...filteredUsers.map((user) => [
         user.id,
         user.prenom,
@@ -579,7 +651,9 @@ const Utilisateurs: React.FC = () => {
     etudiants: users.filter((user) => user.role === "etudiant").length,
   }
 
-  const uniqueFilieres = Array.from(new Set(users.filter((user) => user.filiere).map((user) => user.filiere)))
+  const uniqueFilieres = Array.from(
+    new Set(users.filter((user) => user.filiere !== undefined).map((user) => user.filiere as string))
+  )
 
   const getUserStatusBadge = (status: UserStatus) => {
     switch (status) {
@@ -628,7 +702,7 @@ const Utilisateurs: React.FC = () => {
         <header className="bg-white border-b mb-6 p-4 rounded-lg shadow">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold text-gray-800">Gestion des Utilisateurs - Unipro</h1>
-            <Button onClick={() => setIsAddModalOpen(true)} className="flex items-center">
+            <Button onClick={openAddUserModal} className="flex items-center">
               <UserPlus className="h-4 w-4 mr-2" />
               Ajouter un utilisateur
             </Button>
@@ -637,7 +711,7 @@ const Utilisateurs: React.FC = () => {
 
         {alert.show && (
           <Alert
-            variant={alert.variant as "default" | "warning" | "danger" | "success"}
+            variant={alert.variant}
             onClose={() => setAlert({ show: false, message: "", variant: "default" })}
             className="mb-4"
           >
@@ -789,7 +863,7 @@ const Utilisateurs: React.FC = () => {
                         <div className="h-10 w-10 flex-shrink-0">
                           <img
                             className="h-10 w-10 rounded-full"
-                            src={user.photo}
+                            src={user.photo || "/placeholder.svg"}
                             alt={`${user.prenom} ${user.nom}`}
                           />
                         </div>
@@ -818,7 +892,12 @@ const Utilisateurs: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleViewUser(user)} title="Voir les détails">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleViewUser(user)}
+                          title="Voir les détails"
+                        >
                           <Eye className="h-4 w-4 text-gray-500" />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => handleEditUser(user)} title="Modifier">
@@ -934,7 +1013,7 @@ const Utilisateurs: React.FC = () => {
               <div className="md:w-1/3">
                 <div className="flex flex-col items-center">
                   <img
-                    src={selectedUser.photo}
+                    src={selectedUser.photo || "/placeholder.svg"}
                     alt={`${selectedUser.prenom} ${selectedUser.nom}`}
                     className="h-32 w-32 rounded-full mb-4"
                   />
@@ -1001,10 +1080,10 @@ const Utilisateurs: React.FC = () => {
                             {selectedUser.genre === "homme"
                               ? "Homme"
                               : selectedUser.genre === "femme"
-                              ? "Femme"
-                              : selectedUser.genre === "autre"
-                              ? "Autre"
-                              : "Non renseigné"}
+                                ? "Femme"
+                                : selectedUser.genre === "autre"
+                                  ? "Autre"
+                                  : "Non renseigné"}
                           </div>
                         </div>
                         <div>
@@ -1092,31 +1171,100 @@ const Utilisateurs: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Prénom</label>
-                <Input type="text" defaultValue={selectedUser.prenom} required name="prenom" />
+                <Input type="text" name="prenom" defaultValue={selectedUser.prenom} required />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
-                <Input type="text" defaultValue={selectedUser.nom} required name="nom" />
+                <Input type="text" name="nom" defaultValue={selectedUser.nom} required />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <Input type="email" defaultValue={selectedUser.email} required name="email" />
+                <Input type="email" name="email" defaultValue={selectedUser.email} required />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
-                <Input type="tel" defaultValue={selectedUser.telephone} name="telephone" />
+                <Input type="tel" name="telephone" defaultValue={selectedUser.telephone} />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Rôle</label>
-                <Select defaultValue={selectedUser.role} name="role">
-                  <option value="admin">Administrateur</option>
-                  <option value="professeur">Professeur</option>
-                  <option value="etudiant">Étudiant</option>
-                </Select>
-              </div>
+
+              {selectedUser.role === "admin" && (
+                <>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Niveau d'accès</label>
+                    <Select name="access_level" defaultValue="complet">
+                      <option value="complet">Accès complet</option>
+                      <option value="limité">Accès limité</option>
+                      <option value="lecture">Lecture seule</option>
+                    </Select>
+                  </div>
+                </>
+              )}
+
+              {selectedUser.role === "professeur" && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Filière</label>
+                    <Select name="filiere" defaultValue={selectedUser.filiere} required>
+                      <option value="">Sélectionner une filière</option>
+                      {uniqueFilieres.map((filiere) => (
+                        <option key={filiere} value={filiere}>
+                          {filiere}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Spécialité</label>
+                    <Input type="text" name="specialite" defaultValue="" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Grade</label>
+                    <Select name="grade" defaultValue="">
+                      <option value="">Sélectionner un grade</option>
+                      <option value="assistant">Assistant</option>
+                      <option value="maitre_assistant">Maître assistant</option>
+                      <option value="maitre_conference">Maître de conférence</option>
+                      <option value="professeur">Professeur titulaire</option>
+                    </Select>
+                  </div>
+                </>
+              )}
+
+              {selectedUser.role === "etudiant" && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Filière</label>
+                    <Select name="filiere" defaultValue={selectedUser.filiere} required>
+                      <option value="">Sélectionner une filière</option>
+                      {uniqueFilieres.map((filiere) => (
+                        <option key={filiere} value={filiere}>
+                          {filiere}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Niveau</label>
+                    <Select name="niveau" defaultValue="">
+                      <option value="">Sélectionner un niveau</option>
+                      <option value="licence1">Licence 1</option>
+                      <option value="licence2">Licence 2</option>
+                      <option value="licence3">Licence 3</option>
+                      <option value="master1">Master 1</option>
+                      <option value="master2">Master 2</option>
+                      <option value="doctorat">Doctorat</option>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Numéro d'étudiant</label>
+                    <Input type="text" name="numero_etudiant" defaultValue="" />
+                  </div>
+                </>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
-                <Select defaultValue={selectedUser.status} name="status">
+                <Select name="status" defaultValue={selectedUser.status} required>
+                  <option value="">Sélectionner un statut</option>
                   <option value="actif">Actif</option>
                   <option value="inactif">Inactif</option>
                   <option value="suspendu">Suspendu</option>
@@ -1124,23 +1272,12 @@ const Utilisateurs: React.FC = () => {
                 </Select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Filière</label>
-                <Select defaultValue={selectedUser.filiere || ""} name="filiere">
-                  <option value="">Non applicable</option>
-                  {uniqueFilieres.map((filiere) => (
-                    <option key={filiere} value={filiere}>
-                      {filiere}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date de naissance</label>
-                <Input type="date" defaultValue={selectedUser.dateNaissance} name="dateNaissance" />
+                <Input type="date" name="dateNaissance" defaultValue={selectedUser.dateNaissance} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Genre</label>
-                <Select defaultValue={selectedUser.genre || ""} name="genre">
+                <Select name="genre" defaultValue={selectedUser.genre || ""}>
                   <option value="">Non renseigné</option>
                   <option value="homme">Homme</option>
                   <option value="femme">Femme</option>
@@ -1149,7 +1286,7 @@ const Utilisateurs: React.FC = () => {
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
-                <Input type="text" defaultValue={selectedUser.adresse} name="adresse" />
+                <Input type="text" name="adresse" defaultValue={selectedUser.adresse} />
               </div>
             </div>
             <div className="mt-6 flex justify-end space-x-3">
@@ -1164,83 +1301,211 @@ const Utilisateurs: React.FC = () => {
 
       <Modal
         isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        title="Ajouter un nouvel utilisateur - Unipro"
+        onClose={() => {
+          setIsAddModalOpen(false)
+          setRoleSelectionStep(true)
+          setSelectedRole(null)
+        }}
+        title={
+          roleSelectionStep
+            ? "Sélectionner un type d'utilisateur"
+            : `Ajouter un ${getUserRoleLabel(selectedRole as UserRole).toLowerCase()}`
+        }
         size="lg"
       >
-        <form onSubmit={handleAddUserSubmit}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Prénom</label>
-              <Input type="text" name="prenom" required />
+        {roleSelectionStep ? (
+          <div className="py-6">
+            <div className="text-center mb-6">
+              <h3 className="text-lg font-medium text-gray-900">Quel type d'utilisateur souhaitez-vous ajouter ?</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Veuillez sélectionner le type d'utilisateur que vous souhaitez créer
+              </p>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
-              <Input type="text" name="nom" required />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <Input type="email" name="email" required />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
-              <Input type="tel" name="telephone" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Rôle</label>
-              <Select name="role" required>
-                <option value="">Sélectionner un rôle</option>
-                <option value="admin">Administrateur</option>
-                <option value="professeur">Professeur</option>
-                <option value="etudiant">Étudiant</option>
-              </Select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
-              <Select name="status" required>
-                <option value="">Sélectionner un statut</option>
-                <option value="actif">Actif</option>
-                <option value="inactif">Inactif</option>
-                <option value="suspendu">Suspendu</option>
-                <option value="en attente">En attente</option>
-              </Select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Filière</label>
-              <Select name="filiere">
-                <option value="">Non applicable</option>
-                {uniqueFilieres.map((filiere) => (
-                  <option key={filiere} value={filiere}>
-                    {filiere}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date de naissance</label>
-              <Input type="date" name="dateNaissance" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Genre</label>
-              <Select name="genre">
-                <option value="">Non renseigné</option>
-                <option value="homme">Homme</option>
-                <option value="femme">Femme</option>
-                <option value="autre">Autre</option>
-              </Select>
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
-              <Input type="text" name="adresse" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div
+                onClick={() => handleRoleSelect("admin")}
+                className="border rounded-lg p-6 flex flex-col items-center cursor-pointer hover:bg-gray-50 hover:border-[#2CB3C2] transition-colors"
+              >
+                <div className="h-16 w-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                  <Shield className="h-8 w-8 text-red-500" />
+                </div>
+                <h4 className="text-lg font-medium">Administrateur</h4>
+                <p className="text-sm text-gray-500 text-center mt-2">Gestion complète de la plateforme</p>
+              </div>
+              <div
+                onClick={() => handleRoleSelect("professeur")}
+                className="border rounded-lg p-6 flex flex-col items-center cursor-pointer hover:bg-gray-50 hover:border-[#2CB3C2] transition-colors"
+              >
+                <div className="h-16 w-16 rounded-full bg-[#2CB3C2]/10 flex items-center justify-center mb-4">
+                  <User className="h-8 w-8 text-[#2CB3C2]" />
+                </div>
+                <h4 className="text-lg font-medium">Professeur</h4>
+                <p className="text-sm text-gray-500 text-center mt-2">Gestion des cours et des étudiants</p>
+              </div>
+              <div
+                onClick={() => handleRoleSelect("etudiant")}
+                className="border rounded-lg p-6 flex flex-col items-center cursor-pointer hover:bg-gray-50 hover:border-[#2CB3C2] transition-colors"
+              >
+                <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                  <GraduationCap className="h-8 w-8 text-green-500" />
+                </div>
+                <h4 className="text-lg font-medium">Étudiant</h4>
+                <p className="text-sm text-gray-500 text-center mt-2">Accès aux cours et aux ressources</p>
+              </div>
             </div>
           </div>
-          <div className="mt-6 flex justify-end space-x-3">
-            <Button type="button" variant="outline" onClick={() => setIsAddModalOpen(false)}>
-              Annuler
-            </Button>
-            <Button type="submit">Ajouter l'utilisateur</Button>
-          </div>
-        </form>
+        ) : (
+          <form onSubmit={handleAddUserSubmit}>
+            <div className="mb-4">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleBackToRoleSelection}
+                className="flex items-center text-gray-500"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Retour à la sélection
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Prénom</label>
+                <Input type="text" name="prenom" required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
+                <Input type="text" name="nom" required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <Input type="email" name="email" required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                <Input type="tel" name="telephone" />
+              </div>
+
+              {selectedRole === "admin" && (
+                <>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Niveau d'accès</label>
+                    <Select name="access_level">
+                      <option value="complet">Accès complet</option>
+                      <option value="limité">Accès limité</option>
+                      <option value="lecture">Lecture seule</option>
+                    </Select>
+                  </div>
+                </>
+              )}
+
+              {selectedRole === "professeur" && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Filière</label>
+                    <Select name="filiere" required>
+                      <option value="">Sélectionner une filière</option>
+                      {uniqueFilieres.map((filiere) => (
+                        <option key={filiere} value={filiere}>
+                          {filiere}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Spécialité</label>
+                    <Input type="text" name="specialite" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Grade</label>
+                    <Select name="grade">
+                      <option value="">Sélectionner un grade</option>
+                      <option value="assistant">Assistant</option>
+                      <option value="maitre_assistant">Maître assistant</option>
+                      <option value="maitre_conference">Maître de conférence</option>
+                      <option value="professeur">Professeur titulaire</option>
+                    </Select>
+                  </div>
+                </>
+              )}
+
+              {selectedRole === "etudiant" && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Filière</label>
+                    <Select name="filiere" required>
+                      <option value="">Sélectionner une filière</option>
+                      {uniqueFilieres.map((filiere) => (
+                        <option key={filiere} value={filiere}>
+                          {filiere}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Niveau</label>
+                    <Select name="niveau">
+                      <option value="">Sélectionner un niveau</option>
+                      <option value="licence1">Licence 1</option>
+                      <option value="licence2">Licence 2</option>
+                      <option value="licence3">Licence 3</option>
+                      <option value="master1">Master 1</option>
+                      <option value="master2">Master 2</option>
+                      <option value="doctorat">Doctorat</option>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Numéro d'étudiant</label>
+                    <Input type="text" name="numero_etudiant" />
+                  </div>
+                </>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                <Select name="status" required>
+                  <option value="">Sélectionner un statut</option>
+                  <option value="actif">Actif</option>
+                  <option value="inactif">Inactif</option>
+                  <option value="suspendu">Suspendu</option>
+                  <option value="en attente">En attente</option>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date de naissance</label>
+                <Input type="date" name="dateNaissance" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Genre</label>
+                <Select name="genre">
+                  <option value="">Non renseigné</option>
+                  <option value="homme">Homme</option>
+                  <option value="femme">Femme</option>
+                  <option value="autre">Autre</option>
+                </Select>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
+                <Input type="text" name="adresse" />
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end space-x-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsAddModalOpen(false)
+                  setRoleSelectionStep(true)
+                  setSelectedRole(null)
+                }}
+              >
+                Annuler
+              </Button>
+              <Button type="submit">Ajouter l'utilisateur</Button>
+            </div>
+          </form>
+        )}
       </Modal>
 
       <Modal
@@ -1256,10 +1521,10 @@ const Utilisateurs: React.FC = () => {
               Vous êtes sur le point de supprimer définitivement cet utilisateur. Cette action ne peut pas être annulée.
             </Alert>
             <p className="mb-4">
-              Êtes-vous sûr de vouloir supprimer l'utilisateur{" "}
+              Êtes-vous sûr de vouloir supprimer l'utilisateur
               <strong>
                 {selectedUser.prenom} {selectedUser.nom}
-              </strong>{" "}
+              </strong>
               ?
             </p>
             <div className="flex justify-end space-x-3">

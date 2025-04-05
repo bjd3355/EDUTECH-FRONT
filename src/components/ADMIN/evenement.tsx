@@ -1,14 +1,37 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useMemo } from "react"
-import { Calendar, ChevronLeft, ChevronRight, Clock, Edit, MapPin, Plus, Search, Trash2, Users, X } from "lucide-react"
+import { useState, useEffect, useMemo, useRef } from "react"
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Edit,
+  MapPin,
+  Plus,
+  Search,
+  Trash2,
+  Users,
+  X,
+  Eye,
+  UserPlus,
+} from "lucide-react"
 
 // Types pour les données des événements
 interface Participant {
   id: number
   nom: string
   role: "Professeur" | "Étudiant" | "Administrateur" | "Invité"
+}
+
+// Type pour la visibilité des événements
+type VisibiliteType = "public" | "filiere" | "classe" | "participants"
+
+interface Visibilite {
+  type: VisibiliteType
+  filieres?: string[]
+  classes?: string[]
+  participants?: number[]
 }
 
 interface Event {
@@ -19,6 +42,7 @@ interface Event {
   dateFin: string
   type: "Cours" | "Atelier" | "Examen" | "Réunion" | "Autre"
   filieres: string[]
+  classes: string[] // Ajout de cette propriété
   statut: "Planifié" | "En cours" | "Terminé" | "Annulé"
   participants: Participant[]
   lieu: string
@@ -26,6 +50,8 @@ interface Event {
   couleur: string
   creePar: string
   dateCreation: string
+  image?: string
+  visibilite: Visibilite
 }
 
 // Données fictives avec noms sénégalais
@@ -47,6 +73,16 @@ const filieres = [
   "Toutes les filières",
 ]
 
+const classes = {
+  "Génie Informatique": ["GI1", "GI2", "GI3"],
+  "Comptabilité & Gestion": ["CG1", "CG2", "CG3"],
+  "Marketing Digital": ["MD1", "MD2"],
+  "Commerce International": ["CI1", "CI2", "CI3"],
+  "Ressources Humaines": ["RH1", "RH2"],
+  "Génie Civil": ["GC1", "GC2", "GC3"],
+  "Toutes les filières": ["Toutes les classes"],
+}
+
 const initialEvents: Event[] = [
   {
     id: 1,
@@ -56,6 +92,7 @@ const initialEvents: Event[] = [
     dateFin: "2025-03-27T12:00:00",
     type: "Cours",
     filieres: ["Génie Informatique"],
+    classes: ["GI2"], // Ajout de cette propriété
     statut: "En cours",
     participants: [participants[0], participants[2]],
     lieu: "Classe virtuelle",
@@ -63,6 +100,10 @@ const initialEvents: Event[] = [
     couleur: "#2CB3C2",
     creePar: "M. Sow",
     dateCreation: "2025-03-20T08:30:00",
+    visibilite: {
+      type: "filiere",
+      filieres: ["Génie Informatique"],
+    },
   },
   {
     id: 2,
@@ -72,6 +113,7 @@ const initialEvents: Event[] = [
     dateFin: "2025-03-28T16:00:00",
     type: "Examen",
     filieres: ["Comptabilité & Gestion"],
+    classes: ["CG3"],
     statut: "Planifié",
     participants: [participants[1], participants[3]],
     lieu: "Salle 101",
@@ -79,6 +121,10 @@ const initialEvents: Event[] = [
     couleur: "#2CB3C2",
     creePar: "Mme. Ba",
     dateCreation: "2025-03-15T10:15:00",
+    visibilite: {
+      type: "classe",
+      classes: ["CG3"],
+    },
   },
   {
     id: 3,
@@ -88,6 +134,7 @@ const initialEvents: Event[] = [
     dateFin: "2025-03-29T17:00:00",
     type: "Atelier",
     filieres: ["Marketing Digital", "Génie Informatique"],
+    classes: ["MD2", "GI3"],
     statut: "Planifié",
     participants: [participants[0], participants[2], participants[3]],
     lieu: "Laboratoire d'innovation",
@@ -95,6 +142,10 @@ const initialEvents: Event[] = [
     couleur: "#2CB3C2",
     creePar: "M. Gueye",
     dateCreation: "2025-03-18T14:20:00",
+    visibilite: {
+      type: "participants",
+      participants: [1, 2, 3, 4],
+    },
   },
   {
     id: 4,
@@ -104,6 +155,7 @@ const initialEvents: Event[] = [
     dateFin: "2025-03-30T12:30:00",
     type: "Réunion",
     filieres: ["Toutes les filières"],
+    classes: ["Toutes les classes"],
     statut: "Planifié",
     participants: [participants[0], participants[1], participants[4]],
     lieu: "Salle de conférence",
@@ -111,6 +163,9 @@ const initialEvents: Event[] = [
     couleur: "#2CB3C2",
     creePar: "Mme. Diallo",
     dateCreation: "2025-03-10T09:45:00",
+    visibilite: {
+      type: "public",
+    },
   },
 ]
 
@@ -131,17 +186,29 @@ const GestionEvenements: React.FC = () => {
     dateFin: "",
     type: "Cours",
     filieres: [],
+    classes: [], // Ajout de cette propriété
     statut: "Planifié",
     participants: [],
     lieu: "",
     estRecurrent: false,
     couleur: "#2CB3C2",
+    visibilite: {
+      type: "public",
+    },
   })
   const [searchTerm, setSearchTerm] = useState("")
   const [filterType, setFilterType] = useState<string>("Tous")
   const [filterFiliere, setFilterFiliere] = useState<string>("Toutes")
   const [filterStatut, setFilterStatut] = useState<string>("Tous")
   const [viewMode, setViewMode] = useState<"liste" | "calendrier">("liste")
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [visibiliteStep, setVisibiliteStep] = useState<number>(1)
+  const [selectedVisibiliteType, setSelectedVisibiliteType] = useState<VisibiliteType>("public")
+  const [selectedFilieres, setSelectedFilieres] = useState<string[]>([])
+  const [selectedNiveaux, setSelectedNiveaux] = useState<string[]>([])
+  const [selectedParticipants, setSelectedParticipants] = useState<number[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Effet pour filtrer les événements
   useEffect(() => {
@@ -176,6 +243,39 @@ const GestionEvenements: React.FC = () => {
 
     setFilteredEvents(result)
   }, [events, searchTerm, filterType, filterFiliere, filterStatut])
+
+  // Effet pour mettre à jour les classes disponibles quand les filières changent
+  useEffect(() => {
+    // Si aucune filière n'est sélectionnée, réinitialiser les classes
+    if (selectedFilieres.length === 0) {
+      setSelectedNiveaux([])
+      return
+    }
+
+    // Si des classes sélectionnées ne sont plus disponibles dans les filières actuelles, les retirer
+    const availableNiveaux = getAvailableNiveaux()
+    const validNiveaux = selectedNiveaux.filter((cls) => availableNiveaux.includes(cls))
+
+    if (validNiveaux.length !== selectedNiveaux.length) {
+      setSelectedNiveaux(validNiveaux)
+    }
+  }, [selectedFilieres])
+
+  // Effet pour mettre à jour les classes disponibles quand les filières de l'événement changent
+  useEffect(() => {
+    if (!newEvent.filieres || newEvent.filieres.length === 0) {
+      setNewEvent((prev) => ({ ...prev, classes: [] }))
+      return
+    }
+
+    // Si des classes sélectionnées ne sont plus disponibles dans les filières actuelles, les retirer
+    const availableNiveaux = getNiveauxByFilieres(newEvent.filieres)
+    const validNiveaux = newEvent.classes?.filter((cls) => availableNiveaux.includes(cls)) || []
+
+    if (newEvent.classes && validNiveaux.length !== newEvent.classes.length) {
+      setNewEvent((prev) => ({ ...prev, classes: validNiveaux }))
+    }
+  }, [newEvent.filieres])
 
   // Statistiques
   const stats = useMemo(() => {
@@ -213,6 +313,91 @@ const GestionEvenements: React.FC = () => {
       .slice(0, 5)
   }, [events])
 
+  // Gestion de l'image
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      setSelectedImage(file)
+
+      // Créer un aperçu de l'image
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  // Gestion de la visibilité
+  const handleVisibiliteTypeChange = (type: VisibiliteType) => {
+    setSelectedVisibiliteType(type)
+
+    // Réinitialiser les sélections précédentes
+    if (type !== "filiere") setSelectedFilieres([])
+    if (type !== "classe") setSelectedNiveaux([])
+    if (type !== "participants") setSelectedParticipants([])
+
+    // Avancer à l'étape suivante si nécessaire
+    if (type === "public") {
+      setVisibiliteStep(3) // Passer directement à la confirmation pour le type public
+    } else {
+      setVisibiliteStep(2) // Aller à l'étape de sélection des détails pour les autres types
+    }
+  }
+
+  const handleFiliereChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const options = Array.from(e.target.selectedOptions, (option) => option.value)
+    setSelectedFilieres(options)
+  }
+
+  const handleClasseChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const options = Array.from(e.target.selectedOptions, (option) => option.value)
+    setSelectedNiveaux(options)
+  }
+
+  const handleParticipantChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const options = Array.from(e.target.selectedOptions, (option) => option.value)
+    setSelectedParticipants(options.map(Number))
+  }
+
+  const getAvailableNiveaux = () => {
+    if (selectedFilieres.length === 0) return []
+
+    let availableNiveaux: string[] = []
+    selectedFilieres.forEach((filiere) => {
+      if (classes[filiere as keyof typeof classes]) {
+        availableNiveaux = [...availableNiveaux, ...classes[filiere as keyof typeof classes]]
+      }
+    })
+
+    return availableNiveaux
+  }
+
+  const getVisibiliteDescription = (visibilite: Visibilite): string => {
+    switch (visibilite.type) {
+      case "public":
+        return "Visible par tous"
+      case "filiere":
+        return `Visible par les filières: ${visibilite.filieres?.join(", ")}`
+      case "classe":
+        return `Visible par les classes: ${visibilite.classes?.join(", ")}`
+      case "participants":
+        return `Visible uniquement par les participants sélectionnés (${visibilite.participants?.length})`
+      default:
+        return "Visibilité non définie"
+    }
+  }
+
+  const getNiveauxByFilieres = (selectedFilieres: string[]): string[] => {
+    let result: string[] = []
+    selectedFilieres.forEach((filiere) => {
+      if (classes[filiere as keyof typeof classes]) {
+        result = [...result, ...classes[filiere as keyof typeof classes]]
+      }
+    })
+    return result
+  }
+
   // Gestion de la création d'un nouvel événement
   const handleCreateEvent = (e: React.FormEvent) => {
     e.preventDefault()
@@ -223,6 +408,33 @@ const GestionEvenements: React.FC = () => {
       return
     }
 
+    // Créer l'objet de visibilité en fonction du type sélectionné
+    let visibilite: Visibilite = { type: "public" }
+
+    switch (selectedVisibiliteType) {
+      case "filiere":
+        visibilite = {
+          type: "filiere",
+          filieres: selectedFilieres,
+        }
+        break
+      case "classe":
+        visibilite = {
+          type: "classe",
+          classes: selectedNiveaux,
+        }
+        break
+      case "participants":
+        visibilite = {
+          type: "participants",
+          participants: selectedParticipants,
+        }
+        break
+      case "public":
+      default:
+        visibilite = { type: "public" }
+    }
+
     const eventToAdd: Event = {
       id: Math.max(0, ...events.map((e) => e.id)) + 1,
       titre: newEvent.titre || "",
@@ -231,6 +443,7 @@ const GestionEvenements: React.FC = () => {
       dateFin: newEvent.dateFin || new Date().toISOString(),
       type: (newEvent.type as Event["type"]) || "Cours",
       filieres: newEvent.filieres || [],
+      classes: newEvent.classes || [], // Ajout de cette propriété
       statut: (newEvent.statut as Event["statut"]) || "Planifié",
       participants: newEvent.participants || [],
       lieu: newEvent.lieu || "",
@@ -238,6 +451,8 @@ const GestionEvenements: React.FC = () => {
       couleur: newEvent.couleur || "#2CB3C2",
       creePar: "Administrateur",
       dateCreation: new Date().toISOString(),
+      image: imagePreview || undefined,
+      visibilite: visibilite,
     }
 
     setEvents([...events, eventToAdd])
@@ -277,12 +492,23 @@ const GestionEvenements: React.FC = () => {
       dateFin: "",
       type: "Cours",
       filieres: [],
+      classes: [], // Ajout de cette propriété
       statut: "Planifié",
       participants: [],
       lieu: "",
       estRecurrent: false,
       couleur: "#2CB3C2",
+      visibilite: {
+        type: "public",
+      },
     })
+    setSelectedImage(null)
+    setImagePreview(null)
+    setVisibiliteStep(1)
+    setSelectedVisibiliteType("public")
+    setSelectedFilieres([])
+    setSelectedNiveaux([])
+    setSelectedParticipants([])
   }
 
   // Formater la date pour l'affichage
@@ -314,7 +540,7 @@ const GestionEvenements: React.FC = () => {
       case "En cours":
         return "bg-green-100 text-green-800"
       case "Planifié":
-        return "bg-2CB3C2-100 text-2CB3C2-800"
+        return "bg-cyan-100 text-cyan-800"
       case "Terminé":
         return "bg-gray-100 text-gray-800"
       case "Annulé":
@@ -337,6 +563,20 @@ const GestionEvenements: React.FC = () => {
         return "bg-amber-100 text-amber-800"
       default:
         return "bg-gray-100 text-gray-800"
+    }
+  }
+
+  // Obtenir l'icône pour le type de visibilité
+  const getVisibiliteIcon = (type: VisibiliteType) => {
+    switch (type) {
+      case "public":
+        return <Eye size={16} className="mr-1 text-gray-400" />
+      case "filiere":
+        return <Users size={16} className="mr-1 text-gray-400" />
+      case "classe":
+        return <Users size={16} className="mr-1 text-gray-400" />
+      case "participants":
+        return <UserPlus size={16} className="mr-1 text-gray-400" />
     }
   }
 
@@ -510,6 +750,12 @@ const GestionEvenements: React.FC = () => {
                         scope="col"
                         className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                       >
+                        Niveaux
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
                         Lieu
                       </th>
                       <th
@@ -517,6 +763,12 @@ const GestionEvenements: React.FC = () => {
                         className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                       >
                         Statut
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Visibilité
                       </th>
                       <th
                         scope="col"
@@ -532,7 +784,16 @@ const GestionEvenements: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="h-3 w-3 rounded-full mr-2" style={{ backgroundColor: event.couleur }}></div>
-                            <div className="text-sm font-medium text-gray-900">{event.titre}</div>
+                            <div className="flex items-center">
+                              {event.image && (
+                                <img
+                                  src={event.image || "/placeholder.svg"}
+                                  alt=""
+                                  className="h-8 w-8 rounded-md object-cover mr-2"
+                                />
+                              )}
+                              <div className="text-sm font-medium text-gray-900">{event.titre}</div>
+                            </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -552,6 +813,11 @@ const GestionEvenements: React.FC = () => {
                           <div className="text-sm text-gray-900">{event.filieres.join(", ")}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {event.classes && event.classes.length > 0 ? event.classes.join(", ") : "Toutes"}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">{event.lieu}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -560,6 +826,20 @@ const GestionEvenements: React.FC = () => {
                           >
                             {event.statut}
                           </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center text-sm text-gray-500">
+                            {getVisibiliteIcon(event.visibilite.type)}
+                            <span>
+                              {event.visibilite.type === "public"
+                                ? "Public"
+                                : event.visibilite.type === "filiere"
+                                  ? `Filière${event.visibilite.filieres && event.visibilite.filieres.length > 1 ? "s" : ""}`
+                                  : event.visibilite.type === "classe"
+                                    ? `Classe${event.visibilite.classes && event.visibilite.classes.length > 1 ? "s" : ""}`
+                                    : "Participants"}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end space-x-2">
@@ -688,9 +968,9 @@ const GestionEvenements: React.FC = () => {
                 <p className="text-sm text-gray-500">Total</p>
                 <p className="text-2xl font-bold text-cyan-600">{stats.total}</p>
               </div>
-              <div className="bg-2CB3C2-50 rounded-lg p-4 text-center">
+              <div className="bg-cyan-50 rounded-lg p-4 text-center">
                 <p className="text-sm text-gray-500">Planifiés</p>
-                <p className="text-2xl font-bold text-2CB3C2-600">{stats.planifies}</p>
+                <p className="text-2xl font-bold text-cyan-600">{stats.planifies}</p>
               </div>
               <div className="bg-green-50 rounded-lg p-4 text-center">
                 <p className="text-sm text-gray-500">En cours</p>
@@ -810,196 +1090,488 @@ const GestionEvenements: React.FC = () => {
                 <div className="sm:flex sm:items-start">
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
                     <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Créer un Événement</h3>
-                    <form onSubmit={handleCreateEvent}>
-                      <div className="mb-4">
-                        <label htmlFor="event-title" className="block text-sm font-medium text-gray-700 mb-1">
-                          Titre *
-                        </label>
-                        <input
-                          type="text"
-                          id="event-title"
-                          value={newEvent.titre || ""}
-                          onChange={(e) => setNewEvent({ ...newEvent, titre: e.target.value })}
-                          placeholder="Entrez le titre de l'événement"
-                          className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
-                          required
-                        />
-                      </div>
 
-                      <div className="mb-4">
-                        <label htmlFor="event-description" className="block text-sm font-medium text-gray-700 mb-1">
-                          Description
-                        </label>
-                        <textarea
-                          id="event-description"
-                          value={newEvent.description || ""}
-                          onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
-                          placeholder="Description de l'événement"
-                          rows={3}
-                          className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <label htmlFor="event-start-date" className="block text-sm font-medium text-gray-700 mb-1">
-                            Date et heure de début *
+                    {/* Étape 1: Informations générales */}
+                    {visibiliteStep === 1 && (
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault()
+                          setVisibiliteStep(2)
+                        }}
+                      >
+                        <div className="mb-4">
+                          <label htmlFor="event-title" className="block text-sm font-medium text-gray-700 mb-1">
+                            Titre *
                           </label>
                           <input
-                            type="datetime-local"
-                            id="event-start-date"
-                            value={newEvent.dateDebut || ""}
-                            onChange={(e) => setNewEvent({ ...newEvent, dateDebut: e.target.value })}
+                            type="text"
+                            id="event-title"
+                            value={newEvent.titre || ""}
+                            onChange={(e) => setNewEvent({ ...newEvent, titre: e.target.value })}
+                            placeholder="Entrez le titre de l'événement"
                             className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
                             required
                           />
                         </div>
 
-                        <div>
-                          <label htmlFor="event-end-date" className="block text-sm font-medium text-gray-700 mb-1">
-                            Date et heure de fin *
+                        <div className="mb-4">
+                          <label htmlFor="event-description" className="block text-sm font-medium text-gray-700 mb-1">
+                            Description
                           </label>
-                          <input
-                            type="datetime-local"
-                            id="event-end-date"
-                            value={newEvent.dateFin || ""}
-                            onChange={(e) => setNewEvent({ ...newEvent, dateFin: e.target.value })}
+                          <textarea
+                            id="event-description"
+                            value={newEvent.description || ""}
+                            onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+                            placeholder="Description de l'événement"
+                            rows={3}
                             className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
-                            required
                           />
                         </div>
-                      </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <label htmlFor="event-type" className="block text-sm font-medium text-gray-700 mb-1">
-                            Type *
-                          </label>
-                          <select
-                            id="event-type"
-                            value={newEvent.type || "Cours"}
-                            onChange={(e) => setNewEvent({ ...newEvent, type: e.target.value as Event["type"] })}
-                            className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
-                            required
-                          >
-                            <option value="Cours">Cours</option>
-                            <option value="Atelier">Atelier</option>
-                            <option value="Examen">Examen</option>
-                            <option value="Réunion">Réunion</option>
-                            <option value="Autre">Autre</option>
-                          </select>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <label htmlFor="event-start-date" className="block text-sm font-medium text-gray-700 mb-1">
+                              Date et heure de début *
+                            </label>
+                            <input
+                              type="datetime-local"
+                              id="event-start-date"
+                              value={newEvent.dateDebut || ""}
+                              onChange={(e) => setNewEvent({ ...newEvent, dateDebut: e.target.value })}
+                              className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label htmlFor="event-end-date" className="block text-sm font-medium text-gray-700 mb-1">
+                              Date et heure de fin *
+                            </label>
+                            <input
+                              type="datetime-local"
+                              id="event-end-date"
+                              value={newEvent.dateFin || ""}
+                              onChange={(e) => setNewEvent({ ...newEvent, dateFin: e.target.value })}
+                              className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
+                              required
+                            />
+                          </div>
                         </div>
 
-                        <div>
-                          <label htmlFor="event-status" className="block text-sm font-medium text-gray-700 mb-1">
-                            Statut
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <label htmlFor="event-type" className="block text-sm font-medium text-gray-700 mb-1">
+                              Type *
+                            </label>
+                            <select
+                              id="event-type"
+                              value={newEvent.type || "Cours"}
+                              onChange={(e) => setNewEvent({ ...newEvent, type: e.target.value as Event["type"] })}
+                              className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
+                              required
+                            >
+                              <option value="Cours">Cours</option>
+                              <option value="Atelier">Atelier</option>
+                              <option value="Examen">Examen</option>
+                              <option value="Réunion">Réunion</option>
+                              <option value="Autre">Autre</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label htmlFor="event-status" className="block text-sm font-medium text-gray-700 mb-1">
+                              Statut
+                            </label>
+                            <select
+                              id="event-status"
+                              value={newEvent.statut || "Planifié"}
+                              onChange={(e) => setNewEvent({ ...newEvent, statut: e.target.value as Event["statut"] })}
+                              className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
+                            >
+                              <option value="Planifié">Planifié</option>
+                              <option value="En cours">En cours</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="mb-4">
+                          <label htmlFor="event-filieres" className="block text-sm font-medium text-gray-700 mb-1">
+                            Filières concernées
                           </label>
                           <select
-                            id="event-status"
-                            value={newEvent.statut || "Planifié"}
-                            onChange={(e) => setNewEvent({ ...newEvent, statut: e.target.value as Event["statut"] })}
+                            id="event-filieres"
+                            multiple
+                            value={newEvent.filieres || []}
+                            onChange={(e) => {
+                              const options = Array.from(e.target.selectedOptions, (option) => option.value)
+                              setNewEvent({ ...newEvent, filieres: options })
+                            }}
                             className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
+                            size={4}
                           >
-                            <option value="Planifié">Planifié</option>
-                            <option value="En cours">En cours</option>
-                            <option value="Terminé">Terminé</option>
-                            <option value="Annulé">Annulé</option>
+                            {filieres.map((filiere) => (
+                              <option key={filiere} value={filiere}>
+                                {filiere}
+                              </option>
+                            ))}
                           </select>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Maintenez Ctrl (ou Cmd) pour sélectionner plusieurs filières
+                          </p>
                         </div>
-                      </div>
 
-                      <div className="mb-4">
-                        <label htmlFor="event-location" className="block text-sm font-medium text-gray-700 mb-1">
-                          Lieu
-                        </label>
-                        <input
-                          type="text"
-                          id="event-location"
-                          value={newEvent.lieu || ""}
-                          onChange={(e) => setNewEvent({ ...newEvent, lieu: e.target.value })}
-                          placeholder="Lieu de l'événement"
-                          className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
-                        />
-                      </div>
+                        <div className="mb-4">
+                          <label htmlFor="event-classes" className="block text-sm font-medium text-gray-700 mb-1">
+                            Niveaux concernées
+                          </label>
+                          <select
+                            id="event-classes"
+                            multiple
+                            value={newEvent.classes || []}
+                            onChange={(e) => {
+                              const options = Array.from(e.target.selectedOptions, (option) => option.value)
+                              setNewEvent({ ...newEvent, classes: options })
+                            }}
+                            className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
+                            size={4}
+                            disabled={!newEvent.filieres || newEvent.filieres.length === 0}
+                          >
+                            {newEvent.filieres && newEvent.filieres.length > 0 ? (
+                              getNiveauxByFilieres(newEvent.filieres).map((classe) => (
+                                <option key={classe} value={classe}>
+                                  {classe}
+                                </option>
+                              ))
+                            ) : (
+                              <option disabled>Veuillez d'abord sélectionner une ou plusieurs filières</option>
+                            )}
+                          </select>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {!newEvent.filieres || newEvent.filieres.length === 0
+                              ? "Veuillez d'abord sélectionner une ou plusieurs filières"
+                              : "Maintenez Ctrl (ou Cmd) pour sélectionner plusieurs classes"}
+                          </p>
+                        </div>
 
-                      <div className="mb-4">
-                        <label htmlFor="event-filieres" className="block text-sm font-medium text-gray-700 mb-1">
-                          Filières concernées
-                        </label>
-                        <select
-                          id="event-filieres"
-                          multiple
-                          value={newEvent.filieres || []}
-                          onChange={(e) => {
-                            const options = Array.from(e.target.selectedOptions, (option) => option.value)
-                            setNewEvent({ ...newEvent, filieres: options })
-                          }}
-                          className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
-                          size={4}
-                        >
-                          {filieres.map((filiere) => (
-                            <option key={filiere} value={filiere}>
-                              {filiere}
-                            </option>
-                          ))}
-                        </select>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Maintenez Ctrl (ou Cmd) pour sélectionner plusieurs filières
-                        </p>
-                      </div>
+                        <div className="mb-4">
+                          <label htmlFor="event-location" className="block text-sm font-medium text-gray-700 mb-1">
+                            Lieu
+                          </label>
+                          <input
+                            type="text"
+                            id="event-location"
+                            value={newEvent.lieu || ""}
+                            onChange={(e) => setNewEvent({ ...newEvent, lieu: e.target.value })}
+                            placeholder="Entrez le lieu de l'événement"
+                            className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
+                          />
+                        </div>
 
-                      <div className="mb-4">
-                        <label htmlFor="event-color" className="block text-sm font-medium text-gray-700 mb-1">
-                          Couleur
-                        </label>
-                        <div className="flex items-center">
+                        <div className="mb-4">
+                          <label htmlFor="event-color" className="block text-sm font-medium text-gray-700 mb-1">
+                            Couleur
+                          </label>
                           <input
                             type="color"
                             id="event-color"
                             value={newEvent.couleur || "#2CB3C2"}
                             onChange={(e) => setNewEvent({ ...newEvent, couleur: e.target.value })}
-                            className="h-8 w-8 rounded-md border border-gray-300 p-0"
+                            className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
                           />
-                          <span className="ml-2 text-sm text-gray-600">{newEvent.couleur || "#2CB3C2"}</span>
                         </div>
-                      </div>
 
-                      <div className="mb-4">
-                        <div className="flex items-center">
-                          <input
-                            type="checkbox"
-                            id="event-recurring"
-                            checked={newEvent.estRecurrent || false}
-                            onChange={(e) => setNewEvent({ ...newEvent, estRecurrent: e.target.checked })}
-                            className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-300 rounded"
-                          />
-                          <label htmlFor="event-recurring" className="ml-2 block text-sm text-gray-700">
-                            Événement récurrent
+                        <div className="mb-4">
+                          <label htmlFor="event-image" className="block text-sm font-medium text-gray-700 mb-1">
+                            Image
                           </label>
+                          <input
+                            type="file"
+                            id="event-image"
+                            accept="image/*"
+                            onChange={handleImageChange}
+                            className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
+                            ref={fileInputRef}
+                            style={{ display: "none" }}
+                          />
+                          <button
+                            type="button"
+                            className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500 text-sm text-gray-700 hover:bg-gray-50"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            Choisir une image
+                          </button>
+                          {imagePreview && (
+                            <img
+                              src={imagePreview || "/placeholder.svg"}
+                              alt="Aperçu"
+                              className="mt-2 rounded-md max-h-40 object-cover"
+                            />
+                          )}
+                        </div>
+
+                        <div className="flex justify-end">
+                          <button
+                            type="submit"
+                            className="px-4 py-2 bg-cyan-600 text-white rounded-md hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2"
+                          >
+                            Suivant
+                          </button>
+                        </div>
+                      </form>
+                    )}
+
+                    {/* Étape 2: Visibilité */}
+                    {visibiliteStep === 2 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-3">Choisissez le type de visibilité:</h4>
+                        <div className="space-y-3">
+                          <div>
+                            <label className="flex items-center">
+                              <input
+                                type="radio"
+                                className="form-radio h-5 w-5 text-cyan-600 focus:ring-cyan-500"
+                                value="public"
+                                checked={selectedVisibiliteType === "public"}
+                                onChange={() => handleVisibiliteTypeChange("public")}
+                              />
+                              <span className="ml-2 text-gray-900">Public (Visible par tous)</span>
+                            </label>
+                          </div>
+
+                          <div>
+                            <label className="flex items-center">
+                              <input
+                                type="radio"
+                                className="form-radio h-5 w-5 text-cyan-600 focus:ring-cyan-500"
+                                value="filiere"
+                                checked={selectedVisibiliteType === "filiere"}
+                                onChange={() => handleVisibiliteTypeChange("filiere")}
+                              />
+                              <span className="ml-2 text-gray-900">
+                                Par Filière (Visible par les filières sélectionnées)
+                              </span>
+                            </label>
+                            {selectedVisibiliteType === "filiere" && (
+                              <div className="mt-2">
+                                <select
+                                  multiple
+                                  className="form-select block w-full mt-1 rounded-md border-gray-300 shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
+                                  value={selectedFilieres}
+                                  onChange={handleFiliereChange}
+                                  size={4}
+                                >
+                                  {filieres.map((filiere) => (
+                                    <option key={filiere} value={filiere}>
+                                      {filiere}
+                                    </option>
+                                  ))}
+                                </select>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Maintenez Ctrl (ou Cmd) pour sélectionner plusieurs filières
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="flex items-center">
+                              <input
+                                type="radio"
+                                className="form-radio h-5 w-5 text-cyan-600 focus:ring-cyan-500"
+                                value="classe"
+                                checked={selectedVisibiliteType === "classe"}
+                                onChange={() => handleVisibiliteTypeChange("classe")}
+                              />
+                              <span className="ml-2 text-gray-900">
+                                Par Classe (Visible par les classes sélectionnées)
+                              </span>
+                            </label>
+                            {selectedVisibiliteType === "classe" && (
+                              <div className="mt-2">
+                                <select
+                                  multiple
+                                  className="form-select block w-full mt-1 rounded-md border-gray-300 shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
+                                  value={selectedNiveaux}
+                                  onChange={handleClasseChange}
+                                  size={4}
+                                  disabled={selectedFilieres.length === 0}
+                                >
+                                  {getAvailableNiveaux().map((classe) => (
+                                    <option key={classe} value={classe}>
+                                      {classe}
+                                    </option>
+                                  ))}
+                                </select>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Maintenez Ctrl (ou Cmd) pour sélectionner plusieurs classes
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="flex items-center">
+                              <input
+                                type="radio"
+                                className="form-radio h-5 w-5 text-cyan-600 focus:ring-cyan-500"
+                                value="participants"
+                                checked={selectedVisibiliteType === "participants"}
+                                onChange={() => handleVisibiliteTypeChange("participants")}
+                              />
+                              <span className="ml-2 text-gray-900">
+                                Par Participants (Visible uniquement par les participants sélectionnés)
+                              </span>
+                            </label>
+                            {selectedVisibiliteType === "participants" && (
+                              <div className="mt-2">
+                                <select
+                                  multiple
+                                  className="form-select block w-full mt-1 rounded-md border-gray-300 shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
+                                  value={selectedParticipants}
+                                  onChange={handleParticipantChange}
+                                  size={4}
+                                >
+                                  {participants.map((participant) => (
+                                    <option key={participant.id} value={participant.id}>
+                                      {participant.nom} ({participant.role})
+                                    </option>
+                                  ))}
+                                </select>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Maintenez Ctrl (ou Cmd) pour sélectionner plusieurs participants
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="mt-6 flex justify-between">
+                          <button
+                            type="button"
+                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                            onClick={() => setVisibiliteStep(1)}
+                          >
+                            Précédent
+                          </button>
+                          <button
+                            type="button"
+                            className="px-4 py-2 bg-cyan-600 text-white rounded-md hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2"
+                            onClick={() => setVisibiliteStep(3)}
+                            disabled={
+                              (selectedVisibiliteType === "filiere" && selectedFilieres.length === 0) ||
+                              (selectedVisibiliteType === "classe" && selectedNiveaux.length === 0) ||
+                              (selectedVisibiliteType === "participants" && selectedParticipants.length === 0)
+                            }
+                          >
+                            Suivant
+                          </button>
                         </div>
                       </div>
+                    )}
 
-                      <div className="flex justify-end space-x-3 mt-6">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowCreateModal(false)
-                            resetEventForm()
-                          }}
-                          className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2"
-                        >
-                          Annuler
-                        </button>
-                        <button
-                          type="submit"
-                          className="rounded-md bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2"
-                        >
-                          Créer
-                        </button>
+                    {/* Étape 3: Confirmation */}
+                    {visibiliteStep === 3 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-3">Confirmer les informations:</h4>
+
+                        <div className="mb-3">
+                          <span className="text-sm font-medium text-gray-700">Titre:</span>
+                          <span className="ml-2 text-sm text-gray-900">{newEvent.titre}</span>
+                        </div>
+
+                        <div className="mb-3">
+                          <span className="text-sm font-medium text-gray-700">Description:</span>
+                          <span className="ml-2 text-sm text-gray-900">{newEvent.description || "Aucune"}</span>
+                        </div>
+
+                        <div className="mb-3">
+                          <span className="text-sm font-medium text-gray-700">Date de début:</span>
+                          <span className="ml-2 text-sm text-gray-900">{formatDate(newEvent.dateDebut || "")}</span>
+                        </div>
+
+                        <div className="mb-3">
+                          <span className="text-sm font-medium text-gray-700">Date de fin:</span>
+                          <span className="ml-2 text-sm text-gray-900">{formatDate(newEvent.dateFin || "")}</span>
+                        </div>
+
+                        <div className="mb-3">
+                          <span className="text-sm font-medium text-gray-700">Type:</span>
+                          <span className="ml-2 text-sm text-gray-900">{newEvent.type}</span>
+                        </div>
+
+                        <div className="mb-3">
+                          <span className="text-sm font-medium text-gray-700">Statut:</span>
+                          <span className="ml-2 text-sm text-gray-900">{newEvent.statut}</span>
+                        </div>
+
+                        <div className="mb-3">
+                          <span className="text-sm font-medium text-gray-700">Filières:</span>
+                          <span className="ml-2 text-sm text-gray-900">
+                            {newEvent.filieres && newEvent.filieres.length > 0
+                              ? newEvent.filieres.join(", ")
+                              : "Toutes"}
+                          </span>
+                        </div>
+
+                        <div className="mb-3">
+                          <span className="text-sm font-medium text-gray-700">Niveaux:</span>
+                          <span className="ml-2 text-sm text-gray-900">
+                            {newEvent.classes && newEvent.classes.length > 0
+                              ? newEvent.classes.join(", ")
+                              : "Aucune classe spécifique"}
+                          </span>
+                        </div>
+
+                        <div className="mb-3">
+                          <span className="text-sm font-medium text-gray-700">Lieu:</span>
+                          <span className="ml-2 text-sm text-gray-900">{newEvent.lieu || "Non spécifié"}</span>
+                        </div>
+
+                        <div className="mb-3">
+                          <span className="text-sm font-medium text-gray-700">Visibilité:</span>
+                          <span className="ml-2 text-sm text-gray-900">
+                            {selectedVisibiliteType === "public"
+                              ? "Public"
+                              : selectedVisibiliteType === "filiere"
+                                ? `Filière(s): ${selectedFilieres.join(", ")}`
+                                : selectedVisibiliteType === "classe"
+                                  ? `Classe(s): ${selectedNiveaux.join(", ")}`
+                                  : `Participants (${selectedParticipants.length})`}
+                          </span>
+                        </div>
+
+                        <div className="mt-6 flex justify-between">
+                          <button
+                            type="button"
+                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                            onClick={() => setVisibiliteStep(2)}
+                          >
+                            Précédent
+                          </button>
+                          <button
+                            type="submit"
+                            className="px-4 py-2 bg-cyan-600 text-white rounded-md hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2"
+                            onClick={handleCreateEvent}
+                          >
+                            Créer l'événement
+                          </button>
+                        </div>
                       </div>
-                    </form>
+                    )}
                   </div>
                 </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                  onClick={() => {
+                    setShowCreateModal(false)
+                    resetEventForm()
+                  }}
+                >
+                  Annuler
+                </button>
               </div>
             </div>
           </div>
@@ -1007,7 +1579,7 @@ const GestionEvenements: React.FC = () => {
       )}
 
       {/* Modal de modification d'événement */}
-      {showEditModal && currentEvent && (
+      {showEditModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             <div className="fixed inset-0 transition-opacity" aria-hidden="true">
@@ -1020,45 +1592,38 @@ const GestionEvenements: React.FC = () => {
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Modifier l'Événement</h3>
-                    <form onSubmit={handleEditEvent}>
-                      <div className="mb-4">
-                        <label htmlFor="edit-event-title" className="block text-sm font-medium text-gray-700 mb-1">
-                          Titre *
-                        </label>
-                        <input
-                          type="text"
-                          id="edit-event-title"
-                          value={currentEvent.titre}
-                          onChange={(e) => setCurrentEvent({ ...currentEvent, titre: e.target.value })}
-                          className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
-                          required
-                        />
-                      </div>
+                    <h3 className="text-lg leading-6 font-medium text-gray-900">Modifier l'Événement</h3>
+                    {currentEvent && (
+                      <form onSubmit={handleEditEvent}>
+                        <div className="mb-4">
+                          <label htmlFor="edit-event-title" className="block text-sm font-medium text-gray-700">
+                            Titre
+                          </label>
+                          <input
+                            type="text"
+                            id="edit-event-title"
+                            value={currentEvent.titre}
+                            onChange={(e) => setCurrentEvent({ ...currentEvent, titre: e.target.value })}
+                            className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
+                          />
+                        </div>
 
-                      <div className="mb-4">
-                        <label
-                          htmlFor="edit-event-description"
-                          className="block text-sm font-medium text-gray-700 mb-1"
-                        >
-                          Description
-                        </label>
-                        <textarea
-                          id="edit-event-description"
-                          value={currentEvent.description}
-                          onChange={(e) => setCurrentEvent({ ...currentEvent, description: e.target.value })}
-                          rows={3}
-                          className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
-                        />
-                      </div>
+                        <div className="mb-4">
+                          <label htmlFor="edit-event-description" className="block text-sm font-medium text-gray-700">
+                            Description
+                          </label>
+                          <textarea
+                            id="edit-event-description"
+                            value={currentEvent.description}
+                            onChange={(e) => setCurrentEvent({ ...currentEvent, description: e.target.value })}
+                            rows={3}
+                            className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
+                          />
+                        </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <label
-                            htmlFor="edit-event-start-date"
-                            className="block text-sm font-medium text-gray-700 mb-1"
-                          >
-                            Date et heure de début *
+                        <div className="mb-4">
+                          <label htmlFor="edit-event-start-date" className="block text-sm font-medium text-gray-700">
+                            Date et heure de début
                           </label>
                           <input
                             type="datetime-local"
@@ -1066,13 +1631,12 @@ const GestionEvenements: React.FC = () => {
                             value={currentEvent.dateDebut}
                             onChange={(e) => setCurrentEvent({ ...currentEvent, dateDebut: e.target.value })}
                             className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
-                            required
                           />
                         </div>
 
-                        <div>
-                          <label htmlFor="edit-event-end-date" className="block text-sm font-medium text-gray-700 mb-1">
-                            Date et heure de fin *
+                        <div className="mb-4">
+                          <label htmlFor="edit-event-end-date" className="block text-sm font-medium text-gray-700">
+                            Date et heure de fin
                           </label>
                           <input
                             type="datetime-local"
@@ -1080,15 +1644,12 @@ const GestionEvenements: React.FC = () => {
                             value={currentEvent.dateFin}
                             onChange={(e) => setCurrentEvent({ ...currentEvent, dateFin: e.target.value })}
                             className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
-                            required
                           />
                         </div>
-                      </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <label htmlFor="edit-event-type" className="block text-sm font-medium text-gray-700 mb-1">
-                            Type *
+                        <div className="mb-4">
+                          <label htmlFor="edit-event-type" className="block text-sm font-medium text-gray-700">
+                            Type
                           </label>
                           <select
                             id="edit-event-type"
@@ -1097,7 +1658,6 @@ const GestionEvenements: React.FC = () => {
                               setCurrentEvent({ ...currentEvent, type: e.target.value as Event["type"] })
                             }
                             className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
-                            required
                           >
                             <option value="Cours">Cours</option>
                             <option value="Atelier">Atelier</option>
@@ -1107,8 +1667,8 @@ const GestionEvenements: React.FC = () => {
                           </select>
                         </div>
 
-                        <div>
-                          <label htmlFor="edit-event-status" className="block text-sm font-medium text-gray-700 mb-1">
+                        <div className="mb-4">
+                          <label htmlFor="edit-event-status" className="block text-sm font-medium text-gray-700">
                             Statut
                           </label>
                           <select
@@ -1125,58 +1685,44 @@ const GestionEvenements: React.FC = () => {
                             <option value="Annulé">Annulé</option>
                           </select>
                         </div>
-                      </div>
 
-                      <div className="mb-4">
-                        <label htmlFor="edit-event-location" className="block text-sm font-medium text-gray-700 mb-1">
-                          Lieu
-                        </label>
-                        <input
-                          type="text"
-                          id="edit-event-location"
-                          value={currentEvent.lieu}
-                          onChange={(e) => setCurrentEvent({ ...currentEvent, lieu: e.target.value })}
-                          className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
-                        />
-                      </div>
-
-                      <div className="mb-4">
-                        <label htmlFor="edit-event-color" className="block text-sm font-medium text-gray-700 mb-1">
-                          Couleur
-                        </label>
-                        <div className="flex items-center">
+                        <div className="mb-4">
+                          <label htmlFor="edit-event-location" className="block text-sm font-medium text-gray-700">
+                            Lieu
+                          </label>
                           <input
-                            type="color"
-                            id="edit-event-color"
-                            value={currentEvent.couleur}
-                            onChange={(e) => setCurrentEvent({ ...currentEvent, couleur: e.target.value })}
-                            className="h-8 w-8 rounded-md border border-gray-300 p-0"
+                            type="text"
+                            id="edit-event-location"
+                            value={currentEvent.lieu}
+                            onChange={(e) => setCurrentEvent({ ...currentEvent, lieu: e.target.value })}
+                            className="w-full rounded-md border border-gray-300 p-2 focus:border-cyan-500 focus:ring-cyan-500"
                           />
-                          <span className="ml-2 text-sm text-gray-600">{currentEvent.couleur}</span>
                         </div>
-                      </div>
 
-                      <div className="flex justify-end space-x-3 mt-6">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowEditModal(false)
-                            setCurrentEvent(null)
-                          }}
-                          className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2"
-                        >
-                          Annuler
-                        </button>
-                        <button
-                          type="submit"
-                          className="rounded-md bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2"
-                        >
-                          Enregistrer
-                        </button>
-                      </div>
-                    </form>
+                        <div className="flex justify-end">
+                          <button
+                            type="submit"
+                            className="px-4 py-2 bg-cyan-600 text-white rounded-md hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2"
+                          >
+                            Enregistrer
+                          </button>
+                        </div>
+                      </form>
+                    )}
                   </div>
                 </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                  onClick={() => {
+                    setShowEditModal(false)
+                    setCurrentEvent(null)
+                  }}
+                >
+                  Annuler
+                </button>
               </div>
             </div>
           </div>
@@ -1184,7 +1730,7 @@ const GestionEvenements: React.FC = () => {
       )}
 
       {/* Modal de suppression d'événement */}
-      {showDeleteModal && currentEvent && (
+      {showDeleteModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             <div className="fixed inset-0 transition-opacity" aria-hidden="true">
@@ -1197,14 +1743,13 @@ const GestionEvenements: React.FC = () => {
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-                    <Trash2 className="h-6 w-6 text-red-600" />
+                    <Trash2 className="h-6 w-6 text-red-600" aria-hidden="true" />
                   </div>
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
                     <h3 className="text-lg leading-6 font-medium text-gray-900">Supprimer l'événement</h3>
                     <div className="mt-2">
                       <p className="text-sm text-gray-500">
-                        Êtes-vous sûr de vouloir supprimer l'événement "{currentEvent.titre}" ? Cette action ne peut pas
-                        être annulée.
+                        Êtes-vous sûr de vouloir supprimer cet événement ? Cette action est irréversible.
                       </p>
                     </div>
                   </div>
@@ -1213,18 +1758,15 @@ const GestionEvenements: React.FC = () => {
               <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                 <button
                   type="button"
-                  onClick={handleDeleteEvent}
                   className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+                  onClick={handleDeleteEvent}
                 >
                   Supprimer
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowDeleteModal(false)
-                    setCurrentEvent(null)
-                  }}
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:w-auto sm:text-sm"
+                  onClick={() => setShowDeleteModal(false)}
                 >
                   Annuler
                 </button>
@@ -1234,7 +1776,7 @@ const GestionEvenements: React.FC = () => {
         </div>
       )}
 
-      {/* Modal de détails d'événement */}
+      {/* Modal de détails de l'événement */}
       {showDetailsModal && currentEvent && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
@@ -1246,116 +1788,90 @@ const GestionEvenements: React.FC = () => {
             </span>
             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="flex justify-between items-start">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Détails de l'événement</h3>
-                  <button
-                    onClick={() => {
-                      setShowDetailsModal(false)
-                      setCurrentEvent(null)
-                    }}
-                    className="text-gray-400 hover:text-gray-500"
-                  >
-                    <X size={20} />
-                  </button>
-                </div>
+                <div className="sm:flex sm:items-start">
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900">{currentEvent.titre}</h3>
+                    <div className="mt-2">
+                      {currentEvent.image && (
+                        <img
+                          src={currentEvent.image || "/placeholder.svg"}
+                          alt=""
+                          className="w-full rounded-md object-cover mb-4"
+                        />
+                      )}
+                      <p className="text-sm text-gray-500">{currentEvent.description}</p>
 
-                <div className="border-l-4 pl-4 mb-6" style={{ borderColor: currentEvent.couleur }}>
-                  <h2 className="text-xl font-bold text-gray-800">{currentEvent.titre}</h2>
-                  <p className="text-sm text-gray-500">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeClass(currentEvent.type)}`}
-                    >
-                      {currentEvent.type}
-                    </span>
-                    <span
-                      className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(currentEvent.statut)}`}
-                    >
-                      {currentEvent.statut}
-                    </span>
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700">Description</h4>
-                    <p className="mt-1 text-sm text-gray-600">{currentEvent.description || "Aucune description"}</p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700">Date et heure</h4>
-                      <div className="mt-1 flex items-center text-sm text-gray-600">
-                        <Calendar size={16} className="mr-1 text-gray-400" />
-                        <span>Début: {formatDate(currentEvent.dateDebut)}</span>
+                      <div className="mt-4">
+                        <div className="flex items-center text-sm text-gray-500">
+                          <Calendar size={16} className="mr-1" />
+                          <span>{formatDate(currentEvent.dateDebut)}</span>
+                        </div>
+                        <div className="flex items-center text-sm text-gray-500 mt-1">
+                          <MapPin size={16} className="mr-1" />
+                          <span>{currentEvent.lieu}</span>
+                        </div>
                       </div>
-                      <div className="mt-1 flex items-center text-sm text-gray-600">
-                        <Calendar size={16} className="mr-1 text-gray-400" />
-                        <span>Fin: {formatDate(currentEvent.dateFin)}</span>
-                      </div>
-                      <div className="mt-1 flex items-center text-sm text-gray-600">
-                        <Clock size={16} className="mr-1 text-gray-400" />
-                        <span>Durée: {formatDuration(currentEvent.dateDebut, currentEvent.dateFin)}</span>
-                      </div>
-                    </div>
 
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700">Lieu</h4>
-                      <div className="mt-1 flex items-center text-sm text-gray-600">
-                        <MapPin size={16} className="mr-1 text-gray-400" />
-                        <span>{currentEvent.lieu || "Non spécifié"}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700">Filières concernées</h4>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {currentEvent.filieres.map((filiere) => (
+                      <div className="mt-4">
+                        <h4 className="text-sm font-medium text-gray-700">Type</h4>
                         <span
-                          key={filiere}
-                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-cyan-100 text-cyan-800"
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getTypeClass(currentEvent.type)}`}
                         >
-                          {filiere}
+                          {currentEvent.type}
                         </span>
-                      ))}
-                    </div>
-                  </div>
+                      </div>
 
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700">Participants</h4>
-                    <div className="mt-1 flex items-center text-sm text-gray-600">
-                      <Users size={16} className="mr-1 text-gray-400" />
-                      <span>
-                        {currentEvent.participants.length > 0
-                          ? currentEvent.participants.map((p) => p.nom).join(", ")
-                          : "Aucun participant"}
-                      </span>
-                    </div>
-                  </div>
+                      <div className="mt-4">
+                        <h4 className="text-sm font-medium text-gray-700">Filières concernées</h4>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {currentEvent.filieres.map((filiere) => (
+                            <span
+                              key={filiere}
+                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-cyan-100 text-cyan-800"
+                            >
+                              {filiere}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700">Créé par</h4>
-                      <p className="mt-1 text-sm text-gray-600">{currentEvent.creePar}</p>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700">Date de création</h4>
-                      <p className="mt-1 text-sm text-gray-600">{formatDate(currentEvent.dateCreation)}</p>
-                    </div>
-                  </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700">Niveaux concernées</h4>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {currentEvent.classes && currentEvent.classes.length > 0 ? (
+                            currentEvent.classes.map((classe) => (
+                              <span
+                                key={classe}
+                                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"
+                              >
+                                {classe}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-sm text-gray-500">Aucune classe spécifique</span>
+                          )}
+                        </div>
+                      </div>
 
-                  <div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="view-event-recurring"
-                        checked={currentEvent.estRecurrent}
-                        readOnly
-                        className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor="view-event-recurring" className="ml-2 block text-sm text-gray-700">
-                        Événement récurrent
-                      </label>
+                      <div className="mt-4">
+                        <h4 className="text-sm font-medium text-gray-700">Participants</h4>
+                        {currentEvent.participants.length > 0 ? (
+                          <ul className="list-disc pl-5 mt-1">
+                            {currentEvent.participants.map((participant) => (
+                              <li key={participant.id} className="text-sm text-gray-500">
+                                {participant.nom} ({participant.role})
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-sm text-gray-500">Aucun participant spécifié.</p>
+                        )}
+                      </div>
+
+                      <div className="mt-4">
+                        <h4 className="text-sm font-medium text-gray-700">Visibilité</h4>
+                        <p className="text-sm text-gray-500">{getVisibiliteDescription(currentEvent.visibilite)}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1363,22 +1879,8 @@ const GestionEvenements: React.FC = () => {
               <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowDetailsModal(false)
-                    setCurrentEvent(currentEvent)
-                    setShowEditModal(true)
-                  }}
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-cyan-600 text-base font-medium text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:ml-3 sm:w-auto sm:text-sm"
-                >
-                  Modifier
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowDetailsModal(false)
-                    setCurrentEvent(null)
-                  }}
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:mt-0 sm:w-auto sm:text-sm"
+                  onClick={() => setShowDetailsModal(false)}
                 >
                   Fermer
                 </button>
@@ -1392,3 +1894,4 @@ const GestionEvenements: React.FC = () => {
 }
 
 export default GestionEvenements
+

@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+
 import { useState, useEffect, useReducer, createContext, useContext } from "react"
 import {
   Settings,
@@ -52,6 +53,7 @@ type User = {
   lastLogin?: Date
   status: "active" | "inactive" | "pending" | "blocked"
   avatar?: string
+  permissions?: string[] // Optional specific permissions for admin users
 }
 
 type SecuritySetting = {
@@ -128,6 +130,20 @@ const mockPermissions: Permission[] = [
     description: "Peut voir l'historique complet du chat",
     category: "chat",
   },
+  {
+    id: "p13",
+    name: "Ajouter des utilisateurs",
+    description: "Peut ajouter de nouveaux utilisateurs",
+    category: "users",
+  },
+  {
+    id: "p14",
+    name: "Modifier des utilisateurs",
+    description: "Peut modifier les utilisateurs existants",
+    category: "users",
+  },
+  { id: "p15", name: "Supprimer des utilisateurs", description: "Peut supprimer des utilisateurs", category: "users" },
+  { id: "p16", name: "Voir les utilisateurs", description: "Peut voir la liste des utilisateurs", category: "users" },
 ]
 
 const mockRoles: RoleDefinition[] = [
@@ -135,7 +151,24 @@ const mockRoles: RoleDefinition[] = [
     id: "r1",
     name: "Administrateur",
     description: "Accès complet à toutes les fonctionnalités",
-    permissions: ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9", "p10", "p11", "p12"],
+    permissions: [
+      "p1",
+      "p2",
+      "p3",
+      "p4",
+      "p5",
+      "p6",
+      "p7",
+      "p8",
+      "p9",
+      "p10",
+      "p11",
+      "p12",
+      "p13",
+      "p14",
+      "p15",
+      "p16",
+    ],
     userCount: 3,
     isSystem: true,
     color: "bg-red-100 text-red-800",
@@ -182,6 +215,10 @@ const mockUsers: User[] = Array.from({ length: 20 }, (_, i) => {
   const roles = ["r1", "r2", "r3", "r4", "r5"]
   const statuses: ("active" | "inactive" | "pending" | "blocked")[] = ["active", "inactive", "pending", "blocked"]
 
+  // Add specific permissions for admin users
+  const isAdmin = i % roles.length === 0
+  const adminPermissions = isAdmin ? ["p1", "p2", "p3", "p8", "p9", "p13", "p14", "p15", "p16"] : undefined
+
   return {
     id: `u${i + 1}`,
     name: `Utilisateur ${i + 1}`,
@@ -189,6 +226,7 @@ const mockUsers: User[] = Array.from({ length: 20 }, (_, i) => {
     role: roles[i % roles.length],
     lastLogin: i % 3 === 0 ? undefined : new Date(Date.now() - Math.random() * 10000000000),
     status: statuses[i % statuses.length],
+    permissions: adminPermissions,
   }
 })
 
@@ -437,6 +475,10 @@ type Action =
   | { type: "UPDATE_INTEGRATION_SETTING"; payload: IntegrationSetting }
   | { type: "UPDATE_USER_ROLE"; payload: { userId: string; roleId: string } }
   | { type: "UPDATE_USER_STATUS"; payload: { userId: string; status: User["status"] } }
+  | { type: "ADD_USER"; payload: User }
+  | { type: "UPDATE_USER"; payload: User }
+  | { type: "DELETE_USER"; payload: string }
+  | { type: "UPDATE_ADMIN_PERMISSIONS"; payload: { userId: string; permissions: string[] } }
 
 const initialState: State = {
   roles: mockRoles,
@@ -498,6 +540,28 @@ function reducer(state: State, action: Action): State {
         ...state,
         users: state.users.map((user) =>
           user.id === action.payload.userId ? { ...user, status: action.payload.status } : user,
+        ),
+      }
+    case "ADD_USER":
+      return {
+        ...state,
+        users: [...state.users, action.payload],
+      }
+    case "UPDATE_USER":
+      return {
+        ...state,
+        users: state.users.map((user) => (user.id === action.payload.id ? action.payload : user)),
+      }
+    case "DELETE_USER":
+      return {
+        ...state,
+        users: state.users.filter((user) => user.id !== action.payload),
+      }
+    case "UPDATE_ADMIN_PERMISSIONS":
+      return {
+        ...state,
+        users: state.users.map((user) =>
+          user.id === action.payload.userId ? { ...user, permissions: action.payload.permissions } : user,
         ),
       }
     default:
@@ -721,6 +785,274 @@ const SearchInput: React.FC<SearchInputProps> = ({
   )
 }
 
+// ============= Role Form Component =============
+type RoleFormProps = {
+  role: RoleDefinition
+  permissions: Permission[]
+  onSave: (role: RoleDefinition) => void
+  onCancel: () => void
+}
+
+const RoleForm: React.FC<RoleFormProps> = ({ role, permissions, onSave, onCancel }) => {
+  const [formData, setFormData] = useState<RoleDefinition>({ ...role })
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  // Group permissions by category
+  const permissionsByCategory = permissions.reduce<Record<string, Permission[]>>((acc, permission) => {
+    if (!acc[permission.category]) {
+      acc[permission.category] = []
+    }
+    acc[permission.category].push(permission)
+    return acc
+  }, {})
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handlePermissionToggle = (permId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      permissions: prev.permissions.includes(permId)
+        ? prev.permissions.filter((id) => id !== permId)
+        : [...prev.permissions, permId],
+    }))
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // Validation
+    const newErrors: Record<string, string> = {}
+    if (!formData.name.trim()) {
+      newErrors.name = "Le nom est requis"
+    }
+    if (!formData.description.trim()) {
+      newErrors.description = "La description est requise"
+    }
+    if (formData.permissions.length === 0) {
+      newErrors.permissions = "Au moins une permission est requise"
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
+      return
+    }
+
+    onSave(formData)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="p-4 space-y-4">
+      <div>
+        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+          Nom du rôle
+        </label>
+        <input
+          type="text"
+          id="name"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          className={`w-full px-3 py-2 border rounded-md ${
+            errors.name ? "border-red-500" : "border-gray-300"
+          } bg-white text-gray-900 focus:ring-cyan-500 focus:border-cyan-500`}
+        />
+        {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
+      </div>
+
+      <div>
+        <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+          Description
+        </label>
+        <textarea
+          id="description"
+          name="description"
+          value={formData.description}
+          onChange={handleChange}
+          rows={3}
+          className={`w-full px-3 py-2 border rounded-md ${
+            errors.description ? "border-red-500" : "border-gray-300"
+          } bg-white text-gray-900 focus:ring-cyan-500 focus:border-cyan-500`}
+        />
+        {errors.description && <p className="mt-1 text-sm text-red-600">{errors.description}</p>}
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm font-medium text-gray-700">Permissions</label>
+          {errors.permissions && <p className="text-sm text-red-600">{errors.permissions}</p>}
+        </div>
+
+        <div className="space-y-4 max-h-60 overflow-y-auto p-2 border border-gray-200 rounded-md">
+          {Object.entries(permissionsByCategory).map(([category, perms]) => (
+            <div key={category} className="space-y-2">
+              <h4 className="text-sm font-medium text-gray-700 capitalize">{category}</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {perms.map((permission) => (
+                  <div key={permission.id} className="flex items-center space-x-2 p-2 rounded-md hover:bg-gray-50">
+                    <input
+                      type="checkbox"
+                      id={`perm-${permission.id}`}
+                      checked={formData.permissions.includes(permission.id)}
+                      onChange={() => handlePermissionToggle(permission.id)}
+                      className="w-4 h-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
+                    />
+                    <label htmlFor={`perm-${permission.id}`} className="text-sm text-gray-700 cursor-pointer">
+                      {permission.name}
+                      <p className="text-xs text-gray-500">{permission.description}</p>
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label htmlFor="color" className="block text-sm font-medium text-gray-700 mb-1">
+          Couleur
+        </label>
+        <select
+          id="color"
+          name="color"
+          value={formData.color}
+          onChange={(e) => setFormData((prev) => ({ ...prev, color: e.target.value }))}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-cyan-500 focus:border-cyan-500"
+        >
+          <option value="bg-red-100 text-red-800">Rouge</option>
+          <option value="bg-green-100 text-green-800">Vert</option>
+          <option value="bg-blue-100 text-blue-800">Bleu</option>
+          <option value="bg-yellow-100 text-yellow-800">Jaune</option>
+          <option value="bg-purple-100 text-purple-800">Violet</option>
+          <option value="bg-cyan-100 text-cyan-800">Cyan</option>
+          <option value="bg-gray-100 text-gray-800">Gris</option>
+        </select>
+      </div>
+
+      <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+        >
+          Annuler
+        </button>
+        <button
+          type="submit"
+          className="px-4 py-2 text-sm font-medium text-white bg-cyan-600 rounded-md hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+        >
+          Enregistrer
+        </button>
+      </div>
+    </form>
+  )
+}
+
+// ============= Admin Permissions Form Component =============
+type AdminPermissionsFormProps = {
+  admin: User
+  permissions: Permission[]
+  onSave: (permissions: string[]) => void
+  onCancel: () => void
+}
+
+const AdminPermissionsForm: React.FC<AdminPermissionsFormProps> = ({ admin, permissions, onSave, onCancel }) => {
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>(admin.permissions || [])
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  // Group permissions by category
+  const permissionsByCategory = permissions.reduce<Record<string, Permission[]>>((acc, permission) => {
+    if (!acc[permission.category]) {
+      acc[permission.category] = []
+    }
+    acc[permission.category].push(permission)
+    return acc
+  }, {})
+
+  const handlePermissionToggle = (permId: string) => {
+    setSelectedPermissions((prev) => (prev.includes(permId) ? prev.filter((id) => id !== permId) : [...prev, permId]))
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // Validation
+    if (selectedPermissions.length === 0) {
+      setErrors({ permissions: "Au moins une permission est requise" })
+      return
+    }
+
+    onSave(selectedPermissions)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="p-4 space-y-4">
+      <div className="mb-4">
+        <div className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg">
+          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-cyan-100 flex items-center justify-center text-cyan-600">
+            {admin.name.charAt(0)}
+          </div>
+          <div>
+            <h4 className="text-lg font-medium text-gray-900">{admin.name}</h4>
+            <p className="text-sm text-gray-500">{admin.email}</p>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm font-medium text-gray-700">Permissions</label>
+          {errors.permissions && <p className="text-sm text-red-600">{errors.permissions}</p>}
+        </div>
+
+        <div className="space-y-4 max-h-60 overflow-y-auto p-2 border border-gray-200 rounded-md">
+          {Object.entries(permissionsByCategory).map(([category, perms]) => (
+            <div key={category} className="space-y-2">
+              <h4 className="text-sm font-medium text-gray-700 capitalize">{category}</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {perms.map((permission) => (
+                  <div key={permission.id} className="flex items-center space-x-2 p-2 rounded-md hover:bg-gray-50">
+                    <input
+                      type="checkbox"
+                      id={`admin-perm-${permission.id}`}
+                      checked={selectedPermissions.includes(permission.id)}
+                      onChange={() => handlePermissionToggle(permission.id)}
+                      className="w-4 h-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
+                    />
+                    <label htmlFor={`admin-perm-${permission.id}`} className="text-sm text-gray-700 cursor-pointer">
+                      {permission.name}
+                      <p className="text-xs text-gray-500">{permission.description}</p>
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+        >
+          Annuler
+        </button>
+        <button
+          type="submit"
+          className="px-4 py-2 text-sm font-medium text-white bg-cyan-600 rounded-md hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+        >
+          Enregistrer les permissions
+        </button>
+      </div>
+    </form>
+  )
+}
+
 // ============= Feature Components =============
 
 // Role Management Component
@@ -730,6 +1062,14 @@ const RoleManagement: React.FC = () => {
   const [isAddingRole, setIsAddingRole] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "warning" | "info" } | null>(null)
+  const [selectedAdmin, setSelectedAdmin] = useState<string | null>(null)
+  const [isAssigningPermissions, setIsAssigningPermissions] = useState(false)
+
+  // Filtrer les administrateurs parmi les utilisateurs
+  const adminUsers = state.users.filter((user) => {
+    const userRole = state.roles.find((role) => role.id === user.role)
+    return userRole?.name === "Administrateur"
+  })
 
   const filteredRoles = state.roles.filter(
     (role) =>
@@ -759,6 +1099,23 @@ const RoleManagement: React.FC = () => {
     setToast({ message: "Rôle supprimé avec succès", type: "success" })
   }
 
+  const handleAssignPermissions = (adminId: string) => {
+    setSelectedAdmin(adminId)
+    setIsAssigningPermissions(true)
+  }
+
+  const handleSaveAdminPermissions = (permissions: string[]) => {
+    if (selectedAdmin) {
+      dispatch({
+        type: "UPDATE_ADMIN_PERMISSIONS",
+        payload: { userId: selectedAdmin, permissions },
+      })
+      setToast({ message: "Permissions de l'administrateur mises à jour avec succès", type: "success" })
+      setIsAssigningPermissions(false)
+      setSelectedAdmin(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -780,6 +1137,42 @@ const RoleManagement: React.FC = () => {
           className="max-w-md"
         />
       </div>
+
+      {/* Section pour assigner des droits aux administrateurs */}
+      <Card title="Gestion des droits administrateurs" className="mb-6">
+        <div className="mb-4">
+          <label htmlFor="admin-select" className="block text-sm font-medium text-gray-700 mb-1">
+            Sélectionner un administrateur
+          </label>
+          <div className="flex gap-2">
+            <select
+              id="admin-select"
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 sm:text-sm"
+              value={selectedAdmin || ""}
+              onChange={(e) => setSelectedAdmin(e.target.value)}
+            >
+              <option value="">Choisir un administrateur</option>
+              {adminUsers.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.name} ({user.email})
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => selectedAdmin && handleAssignPermissions(selectedAdmin)}
+              disabled={!selectedAdmin}
+              className="px-3 py-2 text-sm font-medium text-white bg-cyan-600 rounded-lg hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <Shield className="w-4 h-4" />
+              Gérer les permissions
+            </button>
+          </div>
+        </div>
+
+        <div className="text-sm text-gray-500">
+          Sélectionnez un administrateur pour gérer ses permissions et droits d'accès spécifiques.
+        </div>
+      </Card>
 
       <div className="grid gap-4">
         {filteredRoles.map((role) => (
@@ -868,35 +1261,61 @@ const RoleManagement: React.FC = () => {
         </div>
       )}
 
+      {isAssigningPermissions && selectedAdmin && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-xl font-medium text-gray-900">Gérer les permissions de l'administrateur</h3>
+              <button
+                onClick={() => {
+                  setIsAssigningPermissions(false)
+                  setSelectedAdmin(null)
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <AdminPermissionsForm
+              admin={adminUsers.find((user) => user.id === selectedAdmin)!}
+              permissions={state.permissions}
+              onSave={handleSaveAdminPermissions}
+              onCancel={() => {
+                setIsAssigningPermissions(false)
+                setSelectedAdmin(null)
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   )
 }
 
-// Role Form Component
-type RoleFormProps = {
-  role: RoleDefinition
-  permissions: Permission[]
-  onSave: (role: RoleDefinition) => void
+// ============= User Form Component =============
+type UserFormProps = {
+  user?: User
+  roles: RoleDefinition[]
+  onSave: (user: User) => void
   onCancel: () => void
 }
 
-const RoleForm: React.FC<RoleFormProps> = ({ role, permissions, onSave, onCancel }) => {
-  const [formData, setFormData] = useState<RoleDefinition>(role)
+const UserForm: React.FC<UserFormProps> = ({ user, roles, onSave, onCancel }) => {
+  const [formData, setFormData] = useState<Partial<User>>(
+    user || {
+      name: "",
+      email: "",
+      role: roles.find((r) => r.isDefault)?.id || roles[0].id,
+      status: "active",
+    },
+  )
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handlePermissionToggle = (permId: string) => {
-    setFormData((prev) => {
-      const newPermissions = prev.permissions.includes(permId)
-        ? prev.permissions.filter((id) => id !== permId)
-        : [...prev.permissions, permId]
-      return { ...prev, permissions: newPermissions }
-    })
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -904,14 +1323,13 @@ const RoleForm: React.FC<RoleFormProps> = ({ role, permissions, onSave, onCancel
 
     // Validation
     const newErrors: Record<string, string> = {}
-    if (!formData.name.trim()) {
+    if (!formData.name?.trim()) {
       newErrors.name = "Le nom est requis"
     }
-    if (!formData.description.trim()) {
-      newErrors.description = "La description est requise"
-    }
-    if (formData.permissions.length === 0) {
-      newErrors.permissions = "Au moins une permission est requise"
+    if (!formData.email?.trim()) {
+      newErrors.email = "L'email est requis"
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = "Format d'email invalide"
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -919,29 +1337,31 @@ const RoleForm: React.FC<RoleFormProps> = ({ role, permissions, onSave, onCancel
       return
     }
 
-    onSave(formData)
-  }
+    // Dans une application réelle, vous généreriez un ID unique
+    const completeUser = {
+      id: user?.id || `u${Date.now()}`,
+      name: formData.name!,
+      email: formData.email!,
+      role: formData.role!,
+      status: formData.status as User["status"],
+      lastLogin: user?.lastLogin,
+      permissions: user?.permissions,
+    } as User
 
-  // Group permissions by category
-  const permissionsByCategory = permissions.reduce<Record<string, Permission[]>>((acc, permission) => {
-    if (!acc[permission.category]) {
-      acc[permission.category] = []
-    }
-    acc[permission.category].push(permission)
-    return acc
-  }, {})
+    onSave(completeUser)
+  }
 
   return (
     <form onSubmit={handleSubmit} className="p-4 space-y-4">
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-          Nom du rôle
+          Nom complet
         </label>
         <input
           type="text"
           id="name"
           name="name"
-          value={formData.name}
+          value={formData.name || ""}
           onChange={handleChange}
           className={`w-full px-3 py-2 border rounded-md ${
             errors.name ? "border-red-500" : "border-gray-300"
@@ -951,72 +1371,57 @@ const RoleForm: React.FC<RoleFormProps> = ({ role, permissions, onSave, onCancel
       </div>
 
       <div>
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-          Description
+        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+          Email
         </label>
-        <textarea
-          id="description"
-          name="description"
-          value={formData.description}
+        <input
+          type="email"
+          id="email"
+          name="email"
+          value={formData.email || ""}
           onChange={handleChange}
-          rows={3}
           className={`w-full px-3 py-2 border rounded-md ${
-            errors.description ? "border-red-500" : "border-gray-300"
+            errors.email ? "border-red-500" : "border-gray-300"
           } bg-white text-gray-900 focus:ring-cyan-500 focus:border-cyan-500`}
-        ></textarea>
-        {errors.description && <p className="mt-1 text-sm text-red-600">{errors.description}</p>}
+        />
+        {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
       </div>
 
       <div>
-        <label htmlFor="color" className="block text-sm font-medium text-gray-700 mb-1">
-          Couleur
+        <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
+          Rôle
         </label>
         <select
-          id="color"
-          name="color"
-          value={formData.color}
+          id="role"
+          name="role"
+          value={formData.role || ""}
           onChange={handleChange}
           className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-cyan-500 focus:border-cyan-500"
         >
-          <option value="bg-red-100 text-red-800">Rouge</option>
-          <option value="bg-cyan-100 text-cyan-800">Bleu</option>
-          <option value="bg-green-100 text-green-800">Vert</option>
-          <option value="bg-yellow-100 text-yellow-800">Jaune</option>
-          <option value="bg-purple-100 text-purple-800">Violet</option>
-          <option value="bg-gray-100 text-gray-800">Gris</option>
+          {roles.map((role) => (
+            <option key={role.id} value={role.id}>
+              {role.name}
+            </option>
+          ))}
         </select>
       </div>
 
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="block text-sm font-medium text-gray-700">Permissions</label>
-          {errors.permissions && <p className="text-sm text-red-600">{errors.permissions}</p>}
-        </div>
-
-        <div className="space-y-4 max-h-60 overflow-y-auto p-2 border border-gray-200 rounded-md">
-          {Object.entries(permissionsByCategory).map(([category, perms]) => (
-            <div key={category} className="space-y-2">
-              <h4 className="text-sm font-medium text-gray-700 capitalize">{category}</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {perms.map((permission) => (
-                  <div key={permission.id} className="flex items-center space-x-2 p-2 rounded-md hover:bg-gray-50">
-                    <input
-                      type="checkbox"
-                      id={`perm-${permission.id}`}
-                      checked={formData.permissions.includes(permission.id)}
-                      onChange={() => handlePermissionToggle(permission.id)}
-                      className="w-4 h-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
-                    />
-                    <label htmlFor={`perm-${permission.id}`} className="text-sm text-gray-700 cursor-pointer">
-                      {permission.name}
-                      <p className="text-xs text-gray-500">{permission.description}</p>
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+        <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+          Statut
+        </label>
+        <select
+          id="status"
+          name="status"
+          value={formData.status || "active"}
+          onChange={handleChange}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-cyan-500 focus:border-cyan-500"
+        >
+          <option value="active">Actif</option>
+          <option value="inactive">Inactif</option>
+          <option value="pending">En attente</option>
+          <option value="blocked">Bloqué</option>
+        </select>
       </div>
 
       <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
@@ -1043,6 +1448,9 @@ const UserManagement: React.FC = () => {
   const { state, dispatch } = useSettings()
   const [searchTerm, setSearchTerm] = useState("")
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "warning" | "info" } | null>(null)
+  const [isAddingUser, setIsAddingUser] = useState(false)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [deletingUser, setDeletingUser] = useState<User | null>(null)
 
   const filteredUsers = state.users.filter(
     (user) =>
@@ -1060,11 +1468,46 @@ const UserManagement: React.FC = () => {
     setToast({ message: "Statut de l'utilisateur mis à jour", type: "success" })
   }
 
+  const handleAddUser = () => {
+    setIsAddingUser(true)
+  }
+
+  const handleEditUser = (user: User) => {
+    setEditingUser(user)
+  }
+
+  const handleDeleteUser = (user: User) => {
+    setDeletingUser(user)
+  }
+
+  const handleSaveUser = (user: User) => {
+    if (editingUser) {
+      dispatch({ type: "UPDATE_USER", payload: user })
+      setToast({ message: "Utilisateur modifié avec succès", type: "success" })
+    } else {
+      dispatch({ type: "ADD_USER", payload: user })
+      setToast({ message: "Utilisateur ajouté avec succès", type: "success" })
+    }
+    setIsAddingUser(false)
+    setEditingUser(null)
+  }
+
+  const handleConfirmDelete = () => {
+    if (deletingUser) {
+      dispatch({ type: "DELETE_USER", payload: deletingUser.id })
+      setToast({ message: "Utilisateur supprimé avec succès", type: "success" })
+      setDeletingUser(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold text-gray-900">Gestion des utilisateurs</h2>
-        <button className="px-3 py-2 text-sm font-medium text-white bg-cyan-600 rounded-lg hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 flex items-center gap-2">
+        <button
+          onClick={handleAddUser}
+          className="px-3 py-2 text-sm font-medium text-white bg-cyan-600 rounded-lg hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 flex items-center gap-2"
+        >
           <Plus className="w-4 h-4" />
           Ajouter un utilisateur
         </button>
@@ -1165,10 +1608,10 @@ const UserManagement: React.FC = () => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex justify-end space-x-2">
-                    <button className="text-cyan-600 hover:text-cyan-900">
+                    <button className="text-cyan-600 hover:text-cyan-900" onClick={() => handleEditUser(user)}>
                       <Edit className="w-5 h-5" />
                     </button>
-                    <button className="text-red-600 hover:text-red-900">
+                    <button className="text-red-600 hover:text-red-900" onClick={() => handleDeleteUser(user)}>
                       <Trash className="w-5 h-5" />
                     </button>
                   </div>
@@ -1178,6 +1621,77 @@ const UserManagement: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Modal pour ajouter un utilisateur */}
+      {isAddingUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-xl font-medium text-gray-900">Ajouter un utilisateur</h3>
+              <button onClick={() => setIsAddingUser(false)} className="text-gray-500 hover:text-gray-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <UserForm roles={state.roles} onSave={handleSaveUser} onCancel={() => setIsAddingUser(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* Modal pour modifier un utilisateur */}
+      {editingUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-xl font-medium text-gray-900">Modifier l'utilisateur</h3>
+              <button onClick={() => setEditingUser(null)} className="text-gray-500 hover:text-gray-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <UserForm
+              user={editingUser}
+              roles={state.roles}
+              onSave={handleSaveUser}
+              onCancel={() => setEditingUser(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Modal pour confirmer la suppression */}
+      {deletingUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-xl font-medium text-gray-900">Confirmer la suppression</h3>
+              <button onClick={() => setDeletingUser(null)} className="text-gray-500 hover:text-gray-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <p className="text-gray-700">
+                Êtes-vous sûr de vouloir supprimer l'utilisateur <strong>{deletingUser.name}</strong> ? Cette action est
+                irréversible.
+              </p>
+              <div className="mt-6 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setDeletingUser(null)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
@@ -1832,12 +2346,12 @@ const AuditLogs: React.FC = () => {
 // Main Settings Component
 const Parametre: React.FC = () => {
   const [state, dispatch] = useReducer(reducer, initialState)
-  const [activeTab, setActiveTab] = useState("security")
+  const [activeTab, setActiveTab] = useState("roles")
 
   const tabs: Tab[] = [
     {
       id: "security",
-      label: "Sécurité et rôles",
+      label: "Sécurité",
       icon: <Shield className="w-4 h-4" />,
     },
     {
